@@ -44,7 +44,7 @@ bool shell_addToRingBuffer (RingbufferShellTypeDef *ring, uint8_t *PData)
 {
     // Variable definieren
 	uint16_t nextEntry;
-	nextEntry = (ring->head + 1) % ring->size;
+	nextEntry = (ring->head + 1) % SHELL_RING_LENGTH;
 	
 	// Fuege Element zum Ring hinzu
     ring->PBase[ring->tail] = *PData;
@@ -73,22 +73,6 @@ bool shell_removeFromRingBuffer(RingbufferShellTypeDef *ring, uint8_t *PData)
     ring->tail = (ring->tail + 1) % SHELL_RING_LENGTH;
 
     return true;
-}
-//----------------------------------------------------------------------
-
-// Abfrage, ob Ringbuffer voll ist
-//----------------------------------------------------------------------
-bool shell_ringbuffer_full (RingbufferShellTypeDef *ring)
-{
-	
-    if ((((ring->tail) + 1) % SHELL_RING_LENGTH) == ring->head)
-	{
-        return true;														// Wenn voll, Rueckgabe True
-    }
-	else
-	{
-        return false;														// Wenn voll, Rueckgabe False
-    }
 }
 //----------------------------------------------------------------------
 

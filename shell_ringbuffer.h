@@ -16,6 +16,23 @@
 #define SHELL_RINGBUFFER_H_
 //----------------------------------------------------------------------
 
+// Einfuegen der standard Include-Dateien
+//----------------------------------------------------------------------
+
+//----------------------------------------------------------------------
+
+// Einfuegen der STM Include-Dateien
+//----------------------------------------------------------------------
+#include "main.h"
+//----------------------------------------------------------------------
+
+// Definiere Debug Symbols
+//----------------------------------------------------------------------
+#ifdef DEBUG
+//	#define DEBUG_SHELL
+#endif
+//----------------------------------------------------------------------
+
 // Konstanten definieren
 //----------------------------------------------------------------------
 #ifndef SHELL_RING_LENGTH
@@ -29,7 +46,7 @@ typedef struct ringbuffer
 {
 	size_t		head;														//
 	size_t 		tail;														//
-	uint8_t		PBase[SHELL_QUEUE_LENGTH];									//
+	uint8_t		PBase[SHELL_RING_LENGTH];									//
 } RingbufferShellTypeDef;
 //----------------------------------------------------------------------
 
@@ -38,7 +55,6 @@ typedef struct ringbuffer
 bool shell_ringbuffer_init (RingbufferShellTypeDef *ring);					//
 bool shell_addToRingBuffer (RingbufferShellTypeDef *ring, uint8_t *PData);	//
 bool shell_removeFromRingBuffer (RingbufferShellTypeDef *ring, uint8_t *PData);	//
-bool shell_ringbuffer_full (RingbufferShellTypeDef *ring);					//
 bool shell_isRingBufferEmpty (RingbufferShellTypeDef *ring);				//
 //----------------------------------------------------------------------
 

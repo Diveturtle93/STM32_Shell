@@ -16,73 +16,31 @@
 #define SRC_SHELL_COMMANDS_H_
 //----------------------------------------------------------------------
 
-// ... definieren
+// Einfuegen der standard Include-Dateien
 //----------------------------------------------------------------------
 
+//----------------------------------------------------------------------
+
+// Einfuegen der STM Include-Dateien
+//----------------------------------------------------------------------
+
+//----------------------------------------------------------------------
+
+// Einfuegen der eigenen Include Dateien
+//----------------------------------------------------------------------
+#include "basicuart.h"
 //----------------------------------------------------------------------
 
 // Key Codes definieren
 //----------------------------------------------------------------------
-#define KEY_UP              "\x1b\x5b\x41"  /* [up] key: 0x1b 0x5b 0x41 */
-#define KEY_DOWN            "\x1b\x5b\x42"  /* [down] key: 0x1b 0x5b 0x42 */
-#define KEY_RIGHT           "\x1b\x5b\x43"  /* [right] key: 0x1b 0x5b 0x43 */
-#define KEY_LEFT            "\x1b\x5b\x44"  /* [left] key: 0x1b 0x5b 0x44 */
-#define KEY_ENTER           '\r'            /* [enter] key */
-#define KEY_BACKSPACE       '\b'            /* [backspace] key */
-#define KEY_DEL				'\x7f'			/* [DEL] key */
-#define KEY_DELETE			"\x1b\x5b\x33\x7e" /*[Delete] key */
-//----------------------------------------------------------------------
-
-// Farben define
-//----------------------------------------------------------------------
-enum {
-    E_FONT_BLACK,
-    E_FONT_L_RED,
-    E_FONT_RED,
-    E_FONT_GREEN,
-    E_FONT_YELLOW,
-    E_FONT_BLUE,
-    E_FONT_PURPLE,
-    E_FONT_CYAN,
-    E_FONT_WHITE,
-};
-//----------------------------------------------------------------------
-
-// Unterstuetzung alte PrintF_Color Funktion
-//----------------------------------------------------------------------
-#define PRINTF_COLOR(c, ...) _Pragma ("GCC warning \"'PRINTF_COLOR' macro is deprecated\"")   do {                            \
-									switch (c) {                \
-										case E_FONT_BLACK:      \
-										TERMINAL_FONT_BLACK();  \
-										break;                  \
-										case E_FONT_L_RED:      \
-										TERMINAL_FONT_L_RED();  \
-										break;                  \
-										case E_FONT_RED:        \
-										TERMINAL_FONT_RED();    \
-										break;                  \
-										case E_FONT_GREEN:      \
-										TERMINAL_FONT_GREEN();  \
-										break;                  \
-										case E_FONT_YELLOW:     \
-										TERMINAL_FONT_YELLOW(); \
-										break;                  \
-										case E_FONT_BLUE:       \
-										TERMINAL_FONT_BLUE();   \
-										break;                  \
-										case E_FONT_PURPLE:     \
-										TERMINAL_FONT_PURPLE(); \
-										break;                  \
-										case E_FONT_CYAN:       \
-										TERMINAL_FONT_CYAN();   \
-										break;                  \
-										case E_FONT_WHITE:      \
-										TERMINAL_FONT_WHITE();  \
-										break;                  \
-									}                           \
-									printf(__VA_ARGS__);        \
-									TERMINAL_FONT_DEFAULT();    \
-								} while(0)
+#define KEY_UP				"\x1b\x5b\x41"									// [up] key: 0x1b 0x5b 0x41
+#define KEY_DOWN			"\x1b\x5b\x42"									// [down] key: 0x1b 0x5b 0x42
+#define KEY_RIGHT			"\x1b\x5b\x43"									// [right] key: 0x1b 0x5b 0x43
+#define KEY_LEFT			"\x1b\x5b\x44"									// [left] key: 0x1b 0x5b 0x44
+#define KEY_ENTER			'\r'											// [enter] key
+#define KEY_BACKSPACE		'\b'											// [backspace] key
+#define KEY_DEL				'\x7f'											// [DEL] key
+#define KEY_DELETE			"\x1b\x5b\x33\x7e"								// [Delete] key
 //----------------------------------------------------------------------
 
 /* terminal display-----------------------------------------------------BEGIN */
@@ -176,7 +134,7 @@ enum {
 #define TERMINAL_BACK_DEFAULT()		TERMINAL_BACK_BLACK()
 //----------------------------------------------------------------------
 
-// Terminal bis zum Ende loeschen
+// Zeile bis zum Ende loeschen
 //----------------------------------------------------------------------
 #define TERMINAL_CLEAR_END()        printf("\033[K")
 //----------------------------------------------------------------------
