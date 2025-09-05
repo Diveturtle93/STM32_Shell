@@ -85,109 +85,105 @@
 
 // Commands fuer Schriftfarbe
 //----------------------------------------------------------------------
-#define CLI_FONT_BLACK		"\033[1;30m"
-#define CLI_FONT_L_RED		"\033[0;31m"    /* light red */
-#define CLI_FONT_RED		"\033[1;31m"    /* red */
-#define CLI_FONT_GREEN		"\033[1;32m"
-#define CLI_FONT_YELLOW		"\033[1;33m"
-#define CLI_FONT_BLUE		"\033[1;34m"
-#define CLI_FONT_PURPLE		"\033[1;35m"
-#define CLI_FONT_CYAN		"\033[1;36m"
-#define CLI_FONT_WHITE		"\033[1;37m"
-#define CLI_FONT_GREY		"\033[1;90m"
-#define CLI_FONT_DEFAULT	CLI_FONT_WHITE
+#define CLI_FONT_BLACK				"\033[0;30m"
+#define CLI_FONT_RED				"\033[0;31m"
+#define CLI_FONT_GREEN				"\033[0;32m"
+#define CLI_FONT_YELLOW				"\033[0;33m"
+#define CLI_FONT_BLUE				"\033[0;34m"
+#define CLI_FONT_PURPLE				"\033[0;35m"
+#define CLI_FONT_CYAN				"\033[0;36m"
+#define CLI_FONT_WHITE				"\033[0;37m"
+#define CLI_FONT_GREY				"\033[0;90m"
+#define CLI_FONT_DEFAULT			CLI_FONT_WHITE
 //----------------------------------------------------------------------
-#define TERMINAL_FONT_BLACK()       printf("\033[1;30m")
-#define TERMINAL_FONT_L_RED()       printf("\033[0;31m")    /* light red */
-#define TERMINAL_FONT_RED()         printf("\033[1;31m")    /* red */
-#define TERMINAL_FONT_GREEN()       printf("\033[1;32m")
-#define TERMINAL_FONT_YELLOW()      printf("\033[1;33m")
-#define TERMINAL_FONT_BLUE()        printf("\033[1;34m")
-#define TERMINAL_FONT_PURPLE()      printf("\033[1;35m")
-#define TERMINAL_FONT_CYAN()        printf("\033[1;36m")
-#define TERMINAL_FONT_WHITE()       printf("\033[1;37m")
-#define TERMINAL_FONT_DEFAULT()	    TERMINAL_FONT_WHITE()
+#define TERMINAL_FONT_BLACK()		uartTransmitString(CLI_FONT_BLACK)
+#define TERMINAL_FONT_RED()			uartTransmitString(CLI_FONT_RED)
+#define TERMINAL_FONT_GREEN()		uartTransmitString(CLI_FONT_GREEN)
+#define TERMINAL_FONT_YELLOW()		uartTransmitString(CLI_FONT_YELLOW)
+#define TERMINAL_FONT_BLUE()		uartTransmitString(CLI_FONT_BLUE)
+#define TERMINAL_FONT_PURPLE()		uartTransmitString(CLI_FONT_PURPLE)
+#define TERMINAL_FONT_CYAN()		uartTransmitString(CLI_FONT_CYAN)
+#define TERMINAL_FONT_WHITE()		uartTransmitString(CLI_FONT_WHITE)
+#define TERMINAL_FONT_DEFAULT()		TERMINAL_FONT_WHITE()
 //----------------------------------------------------------------------
 
 // Commands fuer Hintergrundfarbe
 //----------------------------------------------------------------------
-#define CLI_BACK_BLACK		"\033[1;40m"
-#define CLI_BACK_L_RED		"\033[0;41m"    /* light red */
-#define CLI_BACK_RED		"\033[1;41m"    /* red */
-#define CLI_BACK_GREEN		"\033[1;42m"
-#define CLI_BACK_YELLOW		"\033[1;43m"
-#define CLI_BACK_BLUE		"\033[1;44m"
-#define CLI_BACK_PURPLE		"\033[1;45m"
-#define CLI_BACK_CYAN		"\033[1;46m"
-#define CLI_BACK_WHITE		"\033[1;47m"
-#define CLI_BACK_DEFAULT	CLI_BACK_BLACK
+#define CLI_BACK_BLACK				"\033[0;40m"
+#define CLI_BACK_RED				"\033[0;41m"
+#define CLI_BACK_GREEN				"\033[0;42m"
+#define CLI_BACK_YELLOW				"\033[0;43m"
+#define CLI_BACK_BLUE				"\033[0;44m"
+#define CLI_BACK_PURPLE				"\033[0;45m"
+#define CLI_BACK_CYAN				"\033[0;46m"
+#define CLI_BACK_WHITE				"\033[0;47m"
+#define CLI_BACK_DEFAULT			CLI_BACK_BLACK
 //----------------------------------------------------------------------
-#define TERMINAL_BACK_BLACK()       printf("\033[1;40m")
-#define TERMINAL_BACK_L_RED()       printf("\033[0;41m")    /* light red */
-#define TERMINAL_BACK_RED()         printf("\033[1;41m")    /* red */
-#define TERMINAL_BACK_GREEN()       printf("\033[1;42m")
-#define TERMINAL_BACK_YELLOW()      printf("\033[1;43m")
-#define TERMINAL_BACK_BLUE()        printf("\033[1;44m")
-#define TERMINAL_BACK_PURPLE()      printf("\033[1;45m")
-#define TERMINAL_BACK_CYAN()        printf("\033[1;46m")
-#define TERMINAL_BACK_WHITE()       printf("\033[1;47m")
+#define TERMINAL_BACK_BLACK()		uartTransmitString(CLI_BACK_BLACK)
+#define TERMINAL_BACK_RED()			uartTransmitString(CLI_BACK_RED)
+#define TERMINAL_BACK_GREEN()		uartTransmitString(CLI_BACK_GREEN)
+#define TERMINAL_BACK_YELLOW()		uartTransmitString(CLI_BACK_YELLOW)
+#define TERMINAL_BACK_BLUE()		uartTransmitString(CLI_BACK_BLUE)
+#define TERMINAL_BACK_PURPLE()		uartTransmitString(CLI_BACK_PURPLE)
+#define TERMINAL_BACK_CYAN()		uartTransmitString(CLI_BACK_CYAN)
+#define TERMINAL_BACK_WHITE()		uartTransmitString(CLI_BACK_WHITE)
 #define TERMINAL_BACK_DEFAULT()		TERMINAL_BACK_BLACK()
 //----------------------------------------------------------------------
 
 // Zeile bis zum Ende loeschen
 //----------------------------------------------------------------------
-#define TERMINAL_CLEAR_END()        printf("\033[K")
+#define TERMINAL_CLEAR_END()		uartTransmitString("\033[K")
 //----------------------------------------------------------------------
 
 // Terminal loeschen, alles
 //----------------------------------------------------------------------
-#define TERMINAL_DISPLAY_CLEAR()    printf("\033[2J")
+#define TERMINAL_DISPLAY_CLEAR()	uartTransmitString("\033[2J")
 //----------------------------------------------------------------------
 
 // Cursor nach oben bewegen, x Stellen
 //----------------------------------------------------------------------
-#define TERMINAL_MOVE_UP(x)         do{ if(x>0) printf("\033[%dA", (x)); }while(0)
+#define TERMINAL_MOVE_UP(x)			do{ if(x>0) printf("\033[%dA", (x)); }while(0)
 //----------------------------------------------------------------------
 
 // Cursor nach unten bewegen, x Stellen
 //----------------------------------------------------------------------
-#define TERMINAL_MOVE_DOWN(x)       do{ if(x>0) printf("\033[%dB", (x)); }while(0)
+#define TERMINAL_MOVE_DOWN(x)		do{ if(x>0) printf("\033[%dB", (x)); }while(0)
 //----------------------------------------------------------------------
 
 // Cursor nach links bewegen, y Stellen
 //----------------------------------------------------------------------
-#define TERMINAL_MOVE_LEFT(y)       do{ if(y>0) printf("\033[%dD", (y)); }while(0)
+#define TERMINAL_MOVE_LEFT(y)		do{ if(y>0) printf("\033[%dD", (y)); }while(0)
 //----------------------------------------------------------------------
 
 // Cursor nach rechts bewegen, y Stellen
 //----------------------------------------------------------------------
-#define TERMINAL_MOVE_RIGHT(y)      do{ if(y>0) printf("\033[%dC", (y)); }while(0)
+#define TERMINAL_MOVE_RIGHT(y)		do{ if(y>0) printf("\033[%dC", (y)); }while(0)
 //----------------------------------------------------------------------
 
 // Cursor an Position x, y setzen
 //----------------------------------------------------------------------
-#define TERMINAL_MOVE_TO(x, y)      printf("\033[%d;%dH", (x), (y))
+#define TERMINAL_MOVE_TO(x, y)		uartTransmitString("\033[%d;%dH", (x), (y))
 //----------------------------------------------------------------------
 
 // Cursor zuruecksetzen
 //----------------------------------------------------------------------
-#define TERMINAL_RESET_CURSOR()     printf("\033[H")
+#define TERMINAL_RESET_CURSOR()		uartTransmitString("\033[H")
 //----------------------------------------------------------------------
 
 // Cursor verbergen
 //----------------------------------------------------------------------
-#define TERMINAL_HIDE_CURSOR()      printf("\033[?25l")
+#define TERMINAL_HIDE_CURSOR()		uartTransmitString("\033[?25l")
 //----------------------------------------------------------------------
 
 // Cursor anzeigen
 //----------------------------------------------------------------------
-#define TERMINAL_SHOW_CURSOR()      printf("\033[?25h")
+#define TERMINAL_SHOW_CURSOR()		uartTransmitString("\033[?25h")
 //----------------------------------------------------------------------
 
 /* reverse display */
 //----------------------------------------------------------------------
-#define TERMINAL_HIGHLIGHT()       printf("\033[7m")
-#define TERMINAL_UN_HIGHLIGHT()    printf("\033[27m")
+#define TERMINAL_HIGHLIGHT()		uartTransmitString("\033[7m")
+#define TERMINAL_UN_HIGHLIGHT()		uartTransmitString("\033[27m")
 //----------------------------------------------------------------------
 
 #endif /* SRC_SHELL_COMMANDS_H_ */
