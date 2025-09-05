@@ -18,7 +18,7 @@
 
 // Einfuegen der standard Include-Dateien
 //----------------------------------------------------------------------
-
+#include <stdbool.h>
 //----------------------------------------------------------------------
 
 // Einfuegen der STM Include-Dateien

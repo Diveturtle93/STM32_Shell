@@ -30,8 +30,8 @@
 
 // Einfuegen der eigenen Include Dateien
 //----------------------------------------------------------------------
-#include "shell.h
 #include "shell_commands.h"
+#include "shell_ringbuffer.h"
 //----------------------------------------------------------------------
 
 // Konstanten definieren
