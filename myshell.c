@@ -238,18 +238,22 @@ void cli_init (UART_HandleTypeDef *handle_uart)
 #endif
 
 	// Commands definieren und in Commandliste speichern
-//	CLI_ADD_CMD("help", cli_help_help, cli_help);
-//    CLI_ADD_CMD("cls", cli_clear_help, cli_clear);
-//    CLI_ADD_CMD("reset", cli_reset_help, cli_reset);
-//    CLI_ADD_CMD("log", cli_log_help, cli_log);
+	CLI_ADD_CMD("help", cli_help_help, cli_help);
+    CLI_ADD_CMD("cls", cli_clear_help, cli_clear);
+    CLI_ADD_CMD("reset", cli_reset_help, cli_reset);
+    CLI_ADD_CMD("log", cli_log_help, cli_log);
 	
 	// Logging ausgeben
 	if (CLI_LAST_LOG_CATEGORY > 32)
 	{
+		// Fehlerausgabe wenn CLI_LAST_LOG_CATEGORY > 32
     	ERR("Too many log categories defined. The max number of log categories that can be user defined is 31.\n");
     }
-
-    LOG(CLI_LOG_SHELL, "Command line successfully initialized.\n");
+	else
+	{
+		// Logging
+		LOG(CLI_LOG_SHELL, "Command line successfully initialized.\n");
+	}
 }
 //----------------------------------------------------------------------
 
@@ -306,9 +310,11 @@ void cli_add_command (const char *command, const char *help, uint8_t (*exec)(int
 			command, MAX_COMMAND_NB);
 		NL1();
 	}
-
-	// Logging
-	LOG(CLI_LOG_SHELL, "Command %s added to shell.\n", command);
+	else
+	{
+		// Logging
+		LOG(CLI_LOG_SHELL, "Command %s added to shell.\n", command);
+	}
 }
 //----------------------------------------------------------------------
 
@@ -373,5 +379,249 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef * huart)
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef * huart)
 {
 	cli_tx_isr_flag = false;
+}
+//----------------------------------------------------------------------
+
+// Ausgabe Hilfe
+//----------------------------------------------------------------------
+uint8_t cli_help (int argc, char *argv[])
+{
+	// Abfrage ob Argument eins ist
+	if (argc == 1)
+	{
+		// Ausgabe fuer jeden Command
+	    for (uint8_t i = 0; i < MAX_COMMAND_NB; i++)
+	    {
+	    	// Wenn Command ungleich ""
+	    	if (strcmp(cli_commands[i].pCmd, "") != 0)
+	    	{
+	    		// Ausgabe Command
+		    	printf("[%s]", cli_commands[i].pCmd);
+		    	NL1();
+
+		    	// Wenn Hilfe fuer Command vorhanden
+		        if (cli_commands[i].pHelp)
+		        {
+		        	// Ausgabe Hilfe fuer Command
+		            printf(cli_commands[i].pHelp);
+		            NL2();
+		        }
+	    	}
+	    }
+
+	    // Erfolgreich beenden der Funktion
+	    return EXIT_SUCCESS;
+	}
+	// Wenn Argumente = 2
+	else if (argc == 2)
+	{
+		// Ausgabe fuer jeden Command
+	    for (uint8_t i = 0; i < MAX_COMMAND_NB; i++)
+	    {
+	    	// Wenn Command mit zweitem Argument uebereinstimmt
+	    	if (strcmp(cli_commands[i].pCmd, argv[1]) == 0)
+	    	{
+	    		// Command ausgeben
+		    	printf("[%s]", cli_commands[i].pCmd);
+		    	NL1();
+
+		    	// Hilfe fuer Command ausgeben
+	    		printf(cli_commands[i].pHelp);
+	    		NL1();
+
+	    	    // Erfolgreich beenden der Funktion
+	    		return EXIT_SUCCESS;
+	    	}
+	    }
+
+	    // Ausgabe kein Command gefunden
+	    printf("No help found for command %s.", argv[1]);
+	    NL1();
+	    return EXIT_FAILURE;
+	}
+	// Ansonsten
+	else
+	{
+		// Ausgabe Fehler
+		printf("Command \"%s\" takes at most 1 argument.", argv[0]);
+		NL1();
+		return EXIT_FAILURE;
+	}
+
+	// Wenn Funktion bisher nicht erfolgreich beendet wurde mit Fehler beenden
+    return EXIT_FAILURE;
+}
+//----------------------------------------------------------------------
+
+// Loesche Ausgabe
+//----------------------------------------------------------------------
+uint8_t cli_clear (int argc, char *argv[])
+{
+	// Abfrage ob Argumente mehr als eins ist
+	if (argc != 1)
+	{
+		// Wenn keine Argumente vorhanden
+		printf("command \"%s\" does not take any argument.", argv[0]);
+		NL1();
+		return EXIT_FAILURE;
+	}
+
+	// Terminal auf Default Einstellungen setzen
+    TERMINAL_BACK_DEFAULT();
+    TERMINAL_FONT_DEFAULT();
+
+    // Reset Cursor
+    TERMINAL_RESET_CURSOR();
+
+    // Loesche Bildschirm
+    TERMINAL_DISPLAY_CLEAR();
+
+    return EXIT_SUCCESS;
+}
+//----------------------------------------------------------------------
+
+// Reset MCU
+//----------------------------------------------------------------------
+uint8_t cli_reset (int argc, char *argv[])
+{
+	// Abfrage ob Argumente mehr als eins ist
+	if (argc > 1)
+	{
+		// Wenn zu wenige Argumente im Befehl stehen
+		printf("Command \"%s\" takes no argument.", argv[0]);
+		NL1();
+		return EXIT_FAILURE;
+	}
+
+	// Ausgabe Shell
+	NL1();
+	printf("[END]: System Rebooting");
+	NL1();
+
+	// Resete MCU
+	HAL_NVIC_SystemReset();
+	return EXIT_SUCCESS;
+}
+//----------------------------------------------------------------------
+
+// Logging ein und ausschalten
+//----------------------------------------------------------------------
+uint8_t cli_log (int argc, char *argv[])
+{
+	if (argc < 2)
+	{
+		printf("Command %s takes at least one argument. Use \"help %s\" for usage.\n", argv[0], argv[0]);
+		return EXIT_FAILURE;
+	}
+
+	if (strcmp(argv[1], "on") == 0)
+	{
+		if (argc < 3)
+		{
+			printf("Command %s on takes at least 3 arguments.\n", argv[0]);
+
+			return EXIT_FAILURE;
+		}
+
+		if (strcmp(argv[2], "all") == 0)
+		{
+			cli_log_stat = 0xFFFFFFFF;
+			printf("All logs enabled.\n");
+
+			return EXIT_SUCCESS;
+		}
+		else
+		{
+			for (uint8_t i = 2; i < argc; i++)
+			{
+				cli_enable_log_entry(argv[i]);
+			}
+
+			return EXIT_SUCCESS;
+		}
+	}
+	else if (strcmp(argv[1], "off") == 0)
+	{
+		printf("Turning off all logs\n");
+		if (argc < 3)
+		{
+			printf("Command %s on takes at least 3 arguments.\n", argv[0]);
+
+			return EXIT_FAILURE;
+		}
+
+		if (strcmp(argv[2], "all") == 0)
+		{
+			cli_log_stat = 0;
+			printf("All logs disabled.\n");
+
+			return EXIT_SUCCESS;
+		}
+		else
+		{
+			for (uint8_t i = 2; i < argc; i++)
+			{
+				cli_disable_log_entry(argv[i]);
+			}
+
+			return EXIT_SUCCESS;
+		}
+	}
+	else if (strcmp(argv[1], "show") == 0)
+	{
+		for (uint8_t i = 0; i < CLI_LAST_LOG_CATEGORY; i++)
+		{
+			printf("%16s:\t", cli_logs_names[i]);
+
+			if (cli_log_stat & (1 << i))
+			{
+				printf(CLI_FONT_GREEN"Enabled"CLI_FONT_DEFAULT"\n");
+			}
+			else
+			{
+				printf(CLI_FONT_RED"Disabled"CLI_FONT_DEFAULT"\n");
+			}
+		}
+
+		return EXIT_SUCCESS;
+	}
+
+	return EXIT_FAILURE;
+}
+//----------------------------------------------------------------------
+
+// Logging ausschalten
+//----------------------------------------------------------------------
+void cli_disable_log_entry (char *str)
+{
+	// Durch gehen fuer jede Kategorie
+	for (unsigned int i = 0; i < CLI_LAST_LOG_CATEGORY; i++)
+	{
+		// Stimmt Kategorie aus Array mit String ueberein
+		if (strcmp(str, cli_logs_names[i]) == 0)
+		{
+			// Deaktiviere Logging fuer Kategorie
+			printf("LOG disabled for category %s.\n", str);
+			cli_log_stat &= ~(1<<i);
+		}
+	}
+}
+//----------------------------------------------------------------------
+
+// Logging einschalten
+//----------------------------------------------------------------------
+void cli_enable_log_entry (char *str)
+{
+	// Durch gehen fuer jede Kategorie
+	for (unsigned int i = 0; i < CLI_LAST_LOG_CATEGORY; i++)
+	{
+		// Stimmt Kategorie aus Array mit String ueberein
+		if (strcmp(str, cli_logs_names[i]) == 0)
+		{
+			// Aktiviere Logging fuer Kategorie
+			printf("LOG enabled for category %s.\n", str);
+			cli_log_stat |= (1<<i);
+		}
+	}
 }
 //----------------------------------------------------------------------
