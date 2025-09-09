@@ -106,23 +106,17 @@
 #define NL3()					do { printf("\n\n\n"); } while (0)			// Drei Leerzeilen
 //----------------------------------------------------------------------
 
-// 
-//----------------------------------------------------------------------
-#define STRING(s) #s
-#define XSTRING(s) STRING(s)
-//----------------------------------------------------------------------
-
 // Consolen Namen definieren
 //----------------------------------------------------------------------
 #ifdef CLI_NAME
 	#define PRINT_CLI_NAME()	do {									\
 									printf(CLI_FONT_DEFAULT				\
-											"\n"XSTRING(CLI_NAME)"$ "); \
+											"\n"CLI_NAME"$ "); \
 								} while (0)
 #else
 	#define PRINT_CLI_NAME()	do {									\
 									printf(CLI_FONT_DEFAULT"\n#$ ");	\
-								} while(0)
+								} while (0)
 #endif
 //----------------------------------------------------------------------
 

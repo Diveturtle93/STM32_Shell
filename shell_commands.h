@@ -142,22 +142,22 @@
 
 // Cursor nach oben bewegen, x Stellen
 //----------------------------------------------------------------------
-#define TERMINAL_MOVE_UP(x)			do{ if(x>0) printf("\033[%dA", (x)); }while(0)
+#define TERMINAL_MOVE_UP(x)			do { if (x > 0) printf("\033[%dA", (x)); } while (0)
 //----------------------------------------------------------------------
 
 // Cursor nach unten bewegen, x Stellen
 //----------------------------------------------------------------------
-#define TERMINAL_MOVE_DOWN(x)		do{ if(x>0) printf("\033[%dB", (x)); }while(0)
+#define TERMINAL_MOVE_DOWN(x)		do { if (x > 0) printf("\033[%dB", (x)); } while (0)
 //----------------------------------------------------------------------
 
 // Cursor nach links bewegen, y Stellen
 //----------------------------------------------------------------------
-#define TERMINAL_MOVE_LEFT(y)		do{ if(y>0) printf("\033[%dD", (y)); }while(0)
+#define TERMINAL_MOVE_LEFT(y)		do { if (y > 0) printf("\033[%dD", (y)); } while (0)
 //----------------------------------------------------------------------
 
 // Cursor nach rechts bewegen, y Stellen
 //----------------------------------------------------------------------
-#define TERMINAL_MOVE_RIGHT(y)		do{ if(y>0) printf("\033[%dC", (y)); }while(0)
+#define TERMINAL_MOVE_RIGHT(y)		do { if (y > 0) printf("\033[%dC", (y)); } while (0)
 //----------------------------------------------------------------------
 
 // Cursor an Position x, y setzen
@@ -200,14 +200,14 @@ If the escape sequence is controlling text color, then it will be followed by an
 
 Here's a table for the color sequences:
 
-Black       0;30     Dark Gray     1;30  
-Blue        0;34     Light Blue    1;34  
-Green       0;32     Light Green   1;32  
-Cyan        0;36     Light Cyan    1;36  
-Red         0;31     Light Red     1;31  
-Purple      0;35     Light Purple  1;35  
-Brown       0;33     Yellow        1;33  
-Light Gray  0;37     White         1;37   
+Black       0;30     Dark Gray     1;30
+Blue        0;34     Light Blue    1;34
+Green       0;32     Light Green   1;32
+Cyan        0;36     Light Cyan    1;36
+Red         0;31     Light Red     1;31
+Purple      0;35     Light Purple  1;35
+Brown       0;33     Yellow        1;33
+Light Gray  0;37     White         1;37
 
 So, if you want your console prompt to be blue, you would use the following escape sequence (in the filename I'm forgetting):
 
