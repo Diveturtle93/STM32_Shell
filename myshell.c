@@ -85,6 +85,9 @@ static ShellHistoryTypeDef history;
 // Variable fuer Log status
 //----------------------------------------------------------------------
 // Log Kategorien
+// Werden ueber CLI_ADDITIONAL_LOG_CATEGORIES definiert
+// Beispiel: #define CLI_ADDITIONAL_LOG_CATEGORIES 			X(CAT1, true)
+// Fuer eine Kategorie mit dem Name CAT1, Logging aktiv (true)
 //----------------------------------------------------------------------
 char *cli_logs_names[] = {"SHELL",
 #ifdef CLI_ADDITIONAL_LOG_CATEGORIES
@@ -94,7 +97,7 @@ char *cli_logs_names[] = {"SHELL",
 #endif
 };
 //----------------------------------------------------------------------
-// Log Tiefe
+// Log Status, jedes Bit ist fuer eine Kategorie, Bit = 0 - Logging aus, Bit = 1 - Logging an
 //----------------------------------------------------------------------
 uint32_t cli_log_stat = 0
 #ifdef CLI_ADDITIONAL_LOG_CATEGORIES
@@ -173,12 +176,15 @@ int _write (int file, char *data, int len)
 		HAL_NVIC_EnableIRQ(USART2_IRQn);
 	}
 
+	// Wenn Status OK
 	if (status == HAL_OK)
 	{
+		// Rueckgabe der Datenlaenge die gesendet wurde
 		return len;
 	}
 	else
 	{
+		// Rueckgabe ohne Datenlaenge
 		return 0;
 	}
 }
@@ -353,7 +359,67 @@ __weak void shell_welcome (void)
 //----------------------------------------------------------------------
 static void cli_history_add (char* buf)
 {
+	// Variablen definieren
+	uint16_t len;
+	uint8_t index = history.latest;
 
+	// Wenn buf = 0
+	if (NULL == buf)
+	{
+		// Beenden
+		return;
+	}
+
+	// Laenge ermitteln
+	len = strlen((const char *)buf);
+
+	// Wenn len groesser als MAX_LINE_LENGTH
+	if (len >= MAX_LINE_LENGTH)
+	{
+		// Beenden
+		return;
+	}
+
+	// Wenn index ungleich 0 ist
+	if (0 != index)
+	{
+		// index runterzaehlen
+		index--;
+	}
+	// Ansonsten
+	else
+	{
+		// Zum hoechsten Historieeintrag springen
+		index = HISTORY_MAX - 1;
+	}
+
+	// Wenn aktuelle Befehl nicht mit letztem Historieeintrag uebereinstimmt
+	if (0 != memcmp(history.cmd[index], buf, len))
+	{
+		// Speicher reservieren und Daten kopieren
+		memset((void *)history.cmd[history.latest], 0x00, MAX_LINE_LENGTH);
+		memcpy((void *)history.cmd[history.latest], (const void *)buf, len);
+
+		// count < HISTORY_MAX
+		if (history.count < HISTORY_MAX)
+		{
+			// count hochzaehlen
+			history.count++;
+		}
+
+		// latest hochzaehlen
+		history.latest++;
+
+		// Wenn latest >= HISTORY_MAX, dann Elemente ueberschreiben
+		if (history.latest >= HISTORY_MAX)
+		{
+			// Erstes Element der History ueberschrieben
+			history.latest = 0;
+		}
+	}
+
+	// History show deaktivieren
+	history.show = 0;
 }
 //----------------------------------------------------------------------
 
@@ -361,7 +427,68 @@ static void cli_history_add (char* buf)
 //----------------------------------------------------------------------
 static uint8_t cli_history_show (uint8_t mode, char** p_history)
 {
-	return 1;
+	// Variablen definieren
+	uint8_t err = true;
+	uint8_t num;
+	uint8_t index;
+
+	// Abfrage, ob Historie = 0 ist
+	if (0 == history.count)
+	{
+		// Rueckgabe Fehler
+		return err;
+	}
+
+	// Abfrage, ob Mode = true ist
+	if (true == mode)
+	{
+		// Wenn show < count ist
+		if (history.show < history.count)
+		{
+			// show hochzaehlen
+			history.show++;
+		}
+	}
+	// Wenn mode nicht true ist
+	else
+	{
+		// Wenn show > 1 ist
+		if (1 < history.show)
+		{
+			// show runterzaehlen
+			history.show--;
+		}
+	}
+
+	// Daten abpeichern
+	num = history.show;
+	index = history.latest;
+
+	// Solange num nicht 0 ist
+	while (num)
+	{
+		// Wenn index ungleich 0 ist
+		if (0 != index)
+		{
+			// index runterzaehöen
+			index--;
+		}
+		// Ansonsten
+		else
+		{
+			// Zum hoechsten Historieeintrag springen
+			index = HISTORY_MAX - 1;
+		}
+
+		// Num runterzaehlen
+		num--;
+	}
+
+	// Command zurueckschrieben in *p_history
+	err = false;
+	*p_history = history.cmd[index];
+
+	return err;
 }
 //----------------------------------------------------------------------
 
