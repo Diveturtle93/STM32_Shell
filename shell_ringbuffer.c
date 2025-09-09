@@ -13,7 +13,6 @@
 // Einfuegen der standard Include-Dateien
 //----------------------------------------------------------------------
 #include <string.h>
-#include <stdbool.h>
 //----------------------------------------------------------------------
 
 // Einfuegen der STM Include-Dateien

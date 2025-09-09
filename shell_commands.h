@@ -33,14 +33,14 @@
 
 // Key Codes definieren
 //----------------------------------------------------------------------
-#define KEY_UP				"\x1b\x5b\x41"									// [up] key: 0x1b 0x5b 0x41
-#define KEY_DOWN			"\x1b\x5b\x42"									// [down] key: 0x1b 0x5b 0x42
-#define KEY_RIGHT			"\x1b\x5b\x43"									// [right] key: 0x1b 0x5b 0x43
-#define KEY_LEFT			"\x1b\x5b\x44"									// [left] key: 0x1b 0x5b 0x44
-#define KEY_ENTER			'\r'											// [enter] key
-#define KEY_BACKSPACE		'\b'											// [backspace] key
-#define KEY_DEL				'\x7f'											// [DEL] key
-#define KEY_DELETE			"\x1b\x5b\x33\x7e"								// [Delete] key
+#define KEY_UP						"\x1b\x5b\x41"							// [up] key: 0x1b 0x5b 0x41
+#define KEY_DOWN					"\x1b\x5b\x42"							// [down] key: 0x1b 0x5b 0x42
+#define KEY_RIGHT					"\x1b\x5b\x43"							// [right] key: 0x1b 0x5b 0x43
+#define KEY_LEFT					"\x1b\x5b\x44"							// [left] key: 0x1b 0x5b 0x44
+#define KEY_ENTER					'\r'									// [enter] key
+#define KEY_BACKSPACE				'\b'									// [backspace] key
+#define KEY_DEL						'\x7f'									// [DEL] key
+#define KEY_DELETE					"\x1b\x5b\x33\x7e"						// [Delete] key
 //----------------------------------------------------------------------
 
 /* terminal display-----------------------------------------------------BEGIN */
@@ -96,14 +96,14 @@
 #define CLI_FONT_GREY				"\033[0;90m"
 #define CLI_FONT_DEFAULT			CLI_FONT_WHITE
 //----------------------------------------------------------------------
-#define TERMINAL_FONT_BLACK()		uartTransmitString(CLI_FONT_BLACK)
-#define TERMINAL_FONT_RED()			uartTransmitString(CLI_FONT_RED)
-#define TERMINAL_FONT_GREEN()		uartTransmitString(CLI_FONT_GREEN)
-#define TERMINAL_FONT_YELLOW()		uartTransmitString(CLI_FONT_YELLOW)
-#define TERMINAL_FONT_BLUE()		uartTransmitString(CLI_FONT_BLUE)
-#define TERMINAL_FONT_PURPLE()		uartTransmitString(CLI_FONT_PURPLE)
-#define TERMINAL_FONT_CYAN()		uartTransmitString(CLI_FONT_CYAN)
-#define TERMINAL_FONT_WHITE()		uartTransmitString(CLI_FONT_WHITE)
+#define TERMINAL_FONT_BLACK()		printf(CLI_FONT_BLACK)
+#define TERMINAL_FONT_RED()			printf(CLI_FONT_RED)
+#define TERMINAL_FONT_GREEN()		printf(CLI_FONT_GREEN)
+#define TERMINAL_FONT_YELLOW()		printf(CLI_FONT_YELLOW)
+#define TERMINAL_FONT_BLUE()		printf(CLI_FONT_BLUE)
+#define TERMINAL_FONT_PURPLE()		printf(CLI_FONT_PURPLE)
+#define TERMINAL_FONT_CYAN()		printf(CLI_FONT_CYAN)
+#define TERMINAL_FONT_WHITE()		printf(CLI_FONT_WHITE)
 #define TERMINAL_FONT_DEFAULT()		TERMINAL_FONT_WHITE()
 //----------------------------------------------------------------------
 
@@ -119,25 +119,25 @@
 #define CLI_BACK_WHITE				"\033[0;47m"
 #define CLI_BACK_DEFAULT			CLI_BACK_BLACK
 //----------------------------------------------------------------------
-#define TERMINAL_BACK_BLACK()		uartTransmitString(CLI_BACK_BLACK)
-#define TERMINAL_BACK_RED()			uartTransmitString(CLI_BACK_RED)
-#define TERMINAL_BACK_GREEN()		uartTransmitString(CLI_BACK_GREEN)
-#define TERMINAL_BACK_YELLOW()		uartTransmitString(CLI_BACK_YELLOW)
-#define TERMINAL_BACK_BLUE()		uartTransmitString(CLI_BACK_BLUE)
-#define TERMINAL_BACK_PURPLE()		uartTransmitString(CLI_BACK_PURPLE)
-#define TERMINAL_BACK_CYAN()		uartTransmitString(CLI_BACK_CYAN)
-#define TERMINAL_BACK_WHITE()		uartTransmitString(CLI_BACK_WHITE)
+#define TERMINAL_BACK_BLACK()		printf(CLI_BACK_BLACK)
+#define TERMINAL_BACK_RED()			printf(CLI_BACK_RED)
+#define TERMINAL_BACK_GREEN()		printf(CLI_BACK_GREEN)
+#define TERMINAL_BACK_YELLOW()		printf(CLI_BACK_YELLOW)
+#define TERMINAL_BACK_BLUE()		printf(CLI_BACK_BLUE)
+#define TERMINAL_BACK_PURPLE()		printf(CLI_BACK_PURPLE)
+#define TERMINAL_BACK_CYAN()		printf(CLI_BACK_CYAN)
+#define TERMINAL_BACK_WHITE()		printf(CLI_BACK_WHITE)
 #define TERMINAL_BACK_DEFAULT()		TERMINAL_BACK_BLACK()
 //----------------------------------------------------------------------
 
 // Zeile bis zum Ende loeschen
 //----------------------------------------------------------------------
-#define TERMINAL_CLEAR_END()		uartTransmitString("\033[K")
+#define TERMINAL_CLEAR_END()		printf("\033[K")
 //----------------------------------------------------------------------
 
 // Terminal loeschen, alles
 //----------------------------------------------------------------------
-#define TERMINAL_DISPLAY_CLEAR()	uartTransmitString("\033[2J")
+#define TERMINAL_DISPLAY_CLEAR()	printf("\033[2J")
 //----------------------------------------------------------------------
 
 // Cursor nach oben bewegen, x Stellen
@@ -162,28 +162,28 @@
 
 // Cursor an Position x, y setzen
 //----------------------------------------------------------------------
-#define TERMINAL_MOVE_TO(x, y)		uartTransmitString("\033[%d;%dH", (x), (y))
+#define TERMINAL_MOVE_TO(x, y)		printf("\033[%d;%dH", (x), (y))
 //----------------------------------------------------------------------
 
 // Cursor zuruecksetzen
 //----------------------------------------------------------------------
-#define TERMINAL_RESET_CURSOR()		uartTransmitString("\033[H")
+#define TERMINAL_RESET_CURSOR()		printf("\033[H")
 //----------------------------------------------------------------------
 
 // Cursor verbergen
 //----------------------------------------------------------------------
-#define TERMINAL_HIDE_CURSOR()		uartTransmitString("\033[?25l")
+#define TERMINAL_HIDE_CURSOR()		printf("\033[?25l")
 //----------------------------------------------------------------------
 
 // Cursor anzeigen
 //----------------------------------------------------------------------
-#define TERMINAL_SHOW_CURSOR()		uartTransmitString("\033[?25h")
+#define TERMINAL_SHOW_CURSOR()		printf("\033[?25h")
 //----------------------------------------------------------------------
 
 /* reverse display */
 //----------------------------------------------------------------------
-#define TERMINAL_HIGHLIGHT()		uartTransmitString("\033[7m")
-#define TERMINAL_UN_HIGHLIGHT()		uartTransmitString("\033[27m")
+#define TERMINAL_HIGHLIGHT()		printf("\033[7m")
+#define TERMINAL_UN_HIGHLIGHT()		printf("\033[27m")
 //----------------------------------------------------------------------
 
 #endif /* SRC_SHELL_COMMANDS_H_ */

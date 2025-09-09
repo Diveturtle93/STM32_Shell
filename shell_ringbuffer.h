@@ -18,7 +18,7 @@
 
 // Einfuegen der standard Include-Dateien
 //----------------------------------------------------------------------
-#include <stdbool.h>
+
 //----------------------------------------------------------------------
 
 // Einfuegen der STM Include-Dateien
@@ -44,18 +44,18 @@
 //----------------------------------------------------------------------
 typedef struct ringbuffer
 {
-	size_t		head;														//
-	size_t 		tail;														//
-	uint8_t		PBase[SHELL_RING_LENGTH];									//
+	uint8_t		head;														// Kopf des Ringbusses
+	uint8_t 	tail;														// Schwanz des Ringbusses
+	uint8_t		PBase[SHELL_RING_LENGTH];									// Daten des Ringbusses
 } RingbufferShellTypeDef;
 //----------------------------------------------------------------------
 
 // Funktionen definieren
 //----------------------------------------------------------------------
-bool shell_ringbuffer_init (RingbufferShellTypeDef *ring);					//
-bool shell_addToRingBuffer (RingbufferShellTypeDef *ring, uint8_t *PData);	//
-bool shell_removeFromRingBuffer (RingbufferShellTypeDef *ring, uint8_t *PData);	//
-bool shell_isRingBufferEmpty (RingbufferShellTypeDef *ring);				//
+bool shell_ringbuffer_init (RingbufferShellTypeDef *ring);					// Ringpuffer fuer Shell initialisieren
+bool shell_addToRingBuffer (RingbufferShellTypeDef *ring, uint8_t *PData);	// Daten  zu Ringpuffer hinzufuegen
+bool shell_removeFromRingBuffer (RingbufferShellTypeDef *ring, uint8_t *PData);	// Daten von Ringpuffer loeschen
+bool shell_isRingBufferEmpty (RingbufferShellTypeDef *ring);				// Abfrage, ob Ringpuffer leer ist
 //----------------------------------------------------------------------
 
 #endif /* SHELL_RINGBUFFER_H_ */
