@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------
-// Titel	:	shell_queue.c
+// Titel	:	shell_ringbuffer.c
 //----------------------------------------------------------------------
 // Sprache	:	C
 // Datum	:	05.09.2025
@@ -22,7 +22,7 @@
 
 // Einfuegen der eigenen Include Dateien
 //----------------------------------------------------------------------
-#include "shell_queue.h"
+#include "shell_ringbuffer.h"
 //----------------------------------------------------------------------
 
 // Initialisiere Ringbuffer
@@ -44,13 +44,13 @@ bool shell_addToRingBuffer (RingbufferShellTypeDef *ring, uint8_t *PData)
 {
     // Variable definieren
 	uint16_t nextEntry;
-	nextEntry = (ring->head + 1) % SHELL_RING_LENGTH;
+	nextEntry = (ring->tail + 1) % SHELL_RING_LENGTH;
 	
 	// Fuege Element zum Ring hinzu
     ring->PBase[ring->tail] = *PData;
 	
 	// Ringbuffer Kopf hochzaehlen
-    ring->tail = ((ring->tail) + 1) % SHELL_RING_LENGTH;
+    ring->tail = nextEntry;
 
     return true;
 }
@@ -67,10 +67,10 @@ bool shell_removeFromRingBuffer(RingbufferShellTypeDef *ring, uint8_t *PData)
     }
 	
 	// Kopiere Zeichen
-    *PData = ring->PBase[ring->tail];
+    *PData = ring->PBase[ring->head];
 	
 	// Ringbuffer Schwanz hochzaehlen
-    ring->tail = (ring->tail + 1) % SHELL_RING_LENGTH;
+    ring->head = (ring->head + 1) % SHELL_RING_LENGTH;
 
     return true;
 }
