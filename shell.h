@@ -41,6 +41,7 @@
 #define MAX_COMMAND_NB			32											// Maximale Anzahl der definierbaren Commands
 #define MAX_ARGC				8											// Maximale Anzahl Argumente
 #define MAX_LINE_LEN			80											// Maximale laenge der Commandzeile
+#define MAX_LINE_LENGTH			80											// Maximale laenge der Commandzeile
 //----------------------------------------------------------------------
 // Auswahl ob CLI ausgeschaltet ist
 //----------------------------------------------------------------------
@@ -55,56 +56,72 @@
 #endif
 //----------------------------------------------------------------------
 
-// Vordefinierte Befehle fuer Fehler, Log, Debug, 
-#define ERR(fmt, ...)  do {												\
-                            fprintf(stderr,								\
-								CLI_FONT_RED							\
-								"[ERROR] %s:%d: "fmt					\
-								CLI_FONT_DEFAULT,						\
-                                __FILE__, __LINE__, ##__VA_ARGS__);		\
-                        }while(0)
-
+// Vordefinierte Befehle fuer Fehler, Log, Debug, DIE mit File und Zeile
+//----------------------------------------------------------------------
+// Fehlermeldung
+//----------------------------------------------------------------------
+#define ERR(fmt, ...)	do {											\
+							fprintf(stderr,								\
+									CLI_FONT_RED						\
+									"[ERROR] %s:%d: "fmt				\
+									CLI_FONT_DEFAULT,					\
+									__FILE__, __LINE__, ##__VA_ARGS__);	\
+						} while (0)
+//----------------------------------------------------------------------
+// Logger Ausgabe, LOG_CAT gibt die Kategorie der Lognachricht an
+//----------------------------------------------------------------------
 #define LOG(LOG_CAT, fmt, ...)											\
-						if((1<<LOG_CAT)&cli_log_stat) {					\
-                            printf(CLI_FONT_CYAN						\
-								"[%s]: "fmt								\
-								CLI_FONT_DEFAULT,						\
-								cli_logs_names[LOG_CAT],				\
-								##__VA_ARGS__);							\
-                        }
-
+						if ((1<<LOG_CAT )& cli_log_stat) {				\
+							printf(CLI_FONT_CYAN						\
+								   "[%s]: "fmt							\
+								   CLI_FONT_DEFAULT,					\
+								   cli_logs_names[LOG_CAT],				\
+								   ##__VA_ARGS__);						\
+						}
+//----------------------------------------------------------------------
+// Debug Ausgabe
+//----------------------------------------------------------------------
 #define DBG(fmt, ...)  do {												\
-                            printf(CLI_FONT_YELLOW						\
-							"[Debug] %s:%d: "fmt						\
-							CLI_FONT_DEFAULT,							\
-                                __FILE__, __LINE__, ##__VA_ARGS__);		\
-                        } while(0)
-
+							printf(CLI_FONT_YELLOW						\
+								   "[Debug] %s:%d: "fmt					\
+								   CLI_FONT_DEFAULT,					\
+								   __FILE__, __LINE__, ##__VA_ARGS__);	\
+						} while (0)
+//----------------------------------------------------------------------
+//
+//----------------------------------------------------------------------
 #define DIE(fmt, ...)   do {											\
-                            TERMINAL_FONT_RED();						\
-                            TERMINAL_HIGHLIGHT();						\
-                            fprintf(stderr,								\
-								"### DIE ### %s:%d: "fmt,				\
-                                __FILE__, __LINE__, ##__VA_ARGS__);		\
-                        } while(1) /* infinite loop */
+							TERMINAL_FONT_RED();						\
+							TERMINAL_HIGHLIGHT();						\
+							fprintf(stderr,								\
+									"### DIE ### %s:%d: "fmt,			\
+									__FILE__, __LINE__, ##__VA_ARGS__);	\
+						} while (1)
 //----------------------------------------------------------------------
 
 // Print Leerzeilen
 //----------------------------------------------------------------------
-#define NL1()					do { printf("\n"); } while(0)
-#define NL2()					do { printf("\n\n"); } while(0)
-#define NL3()					do { printf("\n\n\n"); } while(0)
+#define NL1()					do { printf("\n"); } while (0)				// Eine Leerzeile
+#define NL2()					do { printf("\n\n"); } while (0)			// Zwei Leerzeilen
+#define NL3()					do { printf("\n\n\n"); } while (0)			// Drei Leerzeilen
 //----------------------------------------------------------------------
 
-#define STRING(s) #s
-#define XSTRING(s) STRING(s)
-
+// Consolen Namen definieren
+//----------------------------------------------------------------------
 #ifdef CLI_NAME
-	#define PRINT_CLI_NAME()	do { printf(CLI_FONT_DEFAULT"\n"XSTRING(CLI_NAME)"$ "); } while(0)
+	#define PRINT_CLI_NAME()	do {									\
+									printf(CLI_FONT_DEFAULT				\
+											"\n"CLI_NAME"$ "); \
+								} while (0)
 #else
-	#define PRINT_CLI_NAME()	do { printf(CLI_FONT_DEFAULT"\n#$ "); } while(0)
+	#define PRINT_CLI_NAME()	do {									\
+									printf(CLI_FONT_DEFAULT"\n#$ ");	\
+								} while (0)
 #endif
+//----------------------------------------------------------------------
 
+// Logging definieren
+//----------------------------------------------------------------------
 enum cli_log_categories {
 	CLI_LOG_SHELL = 0,
 
@@ -116,13 +133,11 @@ enum cli_log_categories {
 
 	CLI_LAST_LOG_CATEGORY,
 };
-
-extern char *cli_logs_names[];
-extern uint32_t cli_log_stat;
-
-// ... definieren
 //----------------------------------------------------------------------
 
+//----------------------------------------------------------------------
+extern char *cli_logs_names[];
+extern uint32_t cli_log_stat;
 //----------------------------------------------------------------------
 
 // Funktionen definieren
