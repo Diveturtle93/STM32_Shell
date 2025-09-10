@@ -66,10 +66,10 @@ UART_HandleTypeDef *huart_shell;
 //----------------------------------------------------------------------
 // Variablen fuer die Hilfe Beschreibung der Funktionen
 //----------------------------------------------------------------------
-const char cli_help_help[]	= "Show commands";
-const char cli_clear_help[]	= "Clear the screen";
-const char cli_reset_help[]	= "Reboot MCU";
-const char cli_log_help[]	= "Controls which logs are displayed."
+const char cli_help_help[]	= " * Show commands";
+const char cli_clear_help[]	= " * Clear the screen";
+const char cli_reset_help[]	= " * Reboot MCU";
+const char cli_log_help[]	= " * Controls which logs are displayed."
 							  "\n\t\"log show\" to show which logs are enabled"
 							  "\n\t\"log on/off all\" to enable/disable all logs"
 							  "\n\t\"log on/off [CAT1 CAT2 CAT3...]\" to enable/disable the logs for categories [CAT1 CAT2 CAT3...]";
@@ -431,106 +431,144 @@ static void cli_rx_handle (RingbufferShellTypeDef *rx_buf)
 	}
 
 	// Step 2, Command verarbeiten
+	// Abfrage ob Password OK
 	if (exec_req && !cli_password_ok)
 	{
+		// Wenn nicht Password vergleichen
 #ifdef CLI_PASSWORD
 		Handle.buf[Handle.length - 1] = '\0';
+		
+		// Vergleich Password
 		if (strcmp((char *)Handle.buf, CLI_PASSWORD) == 0)
 		{
+			// Wenn Password uebereinstimmt
 			cli_password_ok = true;
+			
+			// Willkommensbildschirm ausgeben
 			shell_welcome();
 		}
+		
+		// Handler zuruecksetzen
 		Handle.length = 0;
 #else
+		// Willkommensbildschirm ausgeben
 		cli_password_ok = true;
 		shell_welcome();
 #endif
 	}
+	// Pruefen, ob length == 1
 	else if (exec_req && (Handle.length == 1))
 	{
-		/* KEY_ENTER -->ENTER key from terminal */
+		// Nur Enter wurde betaetigt, Shell Namen ausgeben
 		PRINT_CLI_NAME();
 		Handle.length = 0;
 	}
+	// Pruefen, length > 1
 	else if (exec_req && Handle.length > 1)
 	{
+		// Neue Zeile
 		NL1();
+		
+		// Command in Historie schreiben
 		Handle.buf[Handle.length - 1] = '\0';
 		cli_history_add((char *)Handle.buf);
+		
+		// Comand aus String extrahieren
 		char *command = strtok((char *)Handle.buf, " \t");
 
-		/* looking for a match */
+		// Fuer jeden Command durchfuehren
 		for (i = 0; i < MAX_COMMAND_NB; i++)
 		{
+			// Pruefen, ob erstes Argment einem Command entspricht
 			if(0 == strcmp(command, cli_commands[i].pCmd))
 			{
+				// Wenn true
 				cmd_match = true;
 
-				//Split arguments string to argc/argv
+				// Variablen fuer Argumente definieren
 				uint8_t argc = 1;
 				char 	*argv[MAX_ARGC];
 				argv[0] = command;
-
+				
+				// Erstes Argument aus String extrahieren
 				char *token = strtok(NULL, " \t");
+				
+				// Endlosschleife bis Argument NULL
 				while (token != NULL)
 				{
+					// Pruefen, ob argc >= MAX_ARGC
 					if (argc >= MAX_ARGC)
 					{
+						// Wenn true
 						printf(CLI_FONT_RED "Maximum number of arguments is %d. Ignoring the rest of the arguments."CLI_FONT_DEFAULT, MAX_ARGC - 1);
 						NL1();
 						break;
 					}
+					
+					// Argument in Array speichern
 					argv[argc] = token;
 					argc++;
+					
+					// Naechstes Argument aus String extrahieren
 					token = strtok(NULL, " \t");
 				}
-
+				
+				// Pruefen, ob Funktion definiert ist
 				if (cli_commands[i].pFun != NULL)
 				{
-					/* call the func. */
+					// Wenn Funktion definert, dann Funktion ausfuehren
 					TERMINAL_HIDE_CURSOR();
 					uint8_t result = cli_commands[i].pFun(argc, argv);
-
+					
+					// Pruefen, ob Funktion erfolgreich ausgefuehrt wurde
 					if(result == EXIT_SUCCESS)
 					{
+						// Erfolgreich
 						printf(CLI_FONT_GREEN "(%s returned %d)" CLI_FONT_DEFAULT, command, result);
 						NL1();
 					}
+					// Funktion nicht erfolgreich
 					else
 					{
+						// Fehlerausgabe
 						printf(CLI_FONT_RED "(%s returned %d)" CLI_FONT_DEFAULT, command, result);
 						NL1();
 					}
 					TERMINAL_SHOW_CURSOR();
 					break;
 				}
+				// Funktion nicht definiert
 				else
 				{
-					/* func. is void */
+					// Fehlerausgabe
 					printf(CLI_FONT_RED "Command %s exists but no function is associated to it.", command);
 					NL1();
 				}
 			}
 		}
-
+		
+		// Wenn Command nicht in Commandliste
 		if (!cmd_match)
 		{
-			/* no matching command */
+			// Fehlerausgabe
 			printf("\r\nCommand \"%s\" unknown, try: help", Handle.buf);
 			NL1();
 		}
-
+		
+		// length zuruecksetzen und Namen ausgeben
 		Handle.length = 0;
 		PRINT_CLI_NAME();
 	}
-
-
+	
+	// Pruefen, ob maximale length ueberschritten wird
 	if (Handle.length >= MAX_LINE_LENGTH)
 	{
-		/* full, so restart the count */
+		// Fehlerausgabe, bei zu langer Terminaleingabe
 		printf(CLI_FONT_RED "\r\nMax command length is %d.\r\n" CLI_FONT_DEFAULT, MAX_LINE_LEN-1);
-		PRINT_CLI_NAME();
+		
+		// length zuruecksetzen und Namen ausgeben
 		Handle.length = 0;
+		PRINT_CLI_NAME();
 	}
 }
 //----------------------------------------------------------------------
