@@ -5,7 +5,7 @@ and [mdiepart](https://github.com/mdiepart/ushell-stm32).
 
 #
 
-## 1. Einführung [(English)](#introduction)
+## 1. Einführung [(English)](#1-Introduction)
 
 Dieses Projekt ist eine Kommandozeilen-Schnittstelle (CLI), die entwickelt wurde, um eine Shell
 auf einem STM32-Gerät zu implementieren. Es verwendet die generischen Teile der Hardware
@@ -74,7 +74,7 @@ Hauptschleife `(while=` deines Programms einfügen.
 
 ### 3.3 Anpassen der Shell
 
-####Shell-Name
+#### Shell-Name
 
 Die Shell kann einen Namen haben, der am Anfang jeder Eingabezeile angezeigt wird, z.B.:
 
@@ -207,7 +207,7 @@ Dort muss `Receive = LF` und `Transmit = CR` eingestellt werden.
 
 ## 4. Besondere Hinweise bei der Verwendung der Shell
 
-###Verwendung von Ausgaben in Interrupt-Service-Routinen (ISRs)
+### Verwendung von Ausgaben in Interrupt-Service-Routinen (ISRs)
 
 Beim Drucken mit den bereitgestellten Makros oder der Funktion `printf` wird die Standardbibliothek
 stdio.h verwendet. Das bedeutet, dass Ausgaben gepuffert werden können und erst angezeigt werden,
