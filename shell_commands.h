@@ -10,10 +10,15 @@
 //				https://github.com/mdiepart/ushell-stm32
 //----------------------------------------------------------------------
 
+// Saveguard symbol
+//----------------------------------------------------------------------
+#pragma once
+//----------------------------------------------------------------------
+
 // Dateiheader definieren
 //----------------------------------------------------------------------
-#ifndef SRC_SHELL_COMMANDS_H_
-#define SRC_SHELL_COMMANDS_H_
+#ifndef INC_SHELL_COMMANDS_H_
+#define INC_SHELL_COMMANDS_H_
 //----------------------------------------------------------------------
 
 // Einfuegen der standard Include-Dateien
@@ -186,7 +191,7 @@
 #define TERMINAL_UN_HIGHLIGHT()		printf("\033[27m")
 //----------------------------------------------------------------------
 
-#endif /* SRC_SHELL_COMMANDS_H_ */
+#endif /* INC_SHELL_COMMANDS_H_ */
 //----------------------------------------------------------------------
 
 /* https://askubuntu.com/questions/831971/what-type-of-sequences-are-escape-sequences-starting-with-033

@@ -10,10 +10,15 @@
 //				https://github.com/mdiepart/ushell-stm32
 //----------------------------------------------------------------------
 
+// Saveguard symbol
+//----------------------------------------------------------------------
+#pragma once
+//----------------------------------------------------------------------
+
 // Dateiheader definieren
 //----------------------------------------------------------------------
-#ifndef SRC_SHELL_H_
-#define SRC_SHELL_H_
+#ifndef INC_SHELL_H_
+#define INC_SHELL_H_
 //----------------------------------------------------------------------
 
 // Einfuegen der standard Include-Dateien
@@ -32,6 +37,14 @@
 //----------------------------------------------------------------------
 #include "shell_commands.h"
 #include "shell_ringbuffer.h"
+//----------------------------------------------------------------------
+
+// Version definieren
+//----------------------------------------------------------------------
+#define SHELL_MAJOR				0
+#define SHELL_MINOR				0
+#define SHELL_PATCH				0
+#define SHELL_DEV				0
 //----------------------------------------------------------------------
 
 // Konstanten definieren
@@ -147,5 +160,5 @@ void cli_run (void);
 void cli_add_command (const char *command, const char *help, uint8_t (*exec)(int argc, char *argv[]));
 //----------------------------------------------------------------------
 
-#endif /* SRC_SHELL_H_ */
+#endif /* INC_SHELL_H_ */
 //----------------------------------------------------------------------

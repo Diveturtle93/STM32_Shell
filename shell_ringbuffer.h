@@ -10,10 +10,15 @@
 //				https://github.com/mdiepart/ushell-stm32
 //----------------------------------------------------------------------
 
+// Saveguard symbol
+//----------------------------------------------------------------------
+#pragma once
+//----------------------------------------------------------------------
+
 // Dateiheader definieren
 //----------------------------------------------------------------------
-#ifndef SHELL_RINGBUFFER_H_
-#define SHELL_RINGBUFFER_H_
+#ifndef INC_SHELL_RINGBUFFER_H_
+#define INC_SHELL_RINGBUFFER_H_
 //----------------------------------------------------------------------
 
 // Einfuegen der standard Include-Dateien
@@ -58,5 +63,5 @@ bool shell_removeFromRingBuffer (RingbufferShellTypeDef *ring, uint8_t *PData);	
 bool shell_isRingBufferEmpty (RingbufferShellTypeDef *ring);				// Abfrage, ob Ringpuffer leer ist
 //----------------------------------------------------------------------
 
-#endif /* SHELL_RINGBUFFER_H_ */
+#endif /* INC_SHELL_RINGBUFFER_H_ */
 //----------------------------------------------------------------------
