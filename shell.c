@@ -12,7 +12,6 @@
 
 // Einfuegen der standard Include-Dateien
 //----------------------------------------------------------------------
-#include <stdbool.h>
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
@@ -29,695 +28,1026 @@
 #include "shell.h"
 //----------------------------------------------------------------------
 
-/*******************************************************************************
- *
- * 	Typedefs
- *
- ******************************************************************************/
+// Typedefines definieren
+//----------------------------------------------------------------------
+// Buffer fuer aktuelle Zeile
+//----------------------------------------------------------------------
+typedef struct
+{
+	uint8_t buf[MAX_LINE_LENGTH];
+	uint8_t length;
+} ShellHandleTypeDef;
+//----------------------------------------------------------------------
+// Command Speicher
+//----------------------------------------------------------------------
+typedef struct
+{
+	const char *pCmd;
+	const char *pHelp;
+	uint8_t (*pFun)(int argc, char *argv[]);
+} ShellCommandTypeDef;
+//----------------------------------------------------------------------
+// History Speicher
+//----------------------------------------------------------------------
+typedef struct
+{
+	char cmd[HISTORY_MAX][MAX_LINE_LENGTH];
+	uint8_t count;
+	uint8_t latest;
+	uint8_t show;
+} ShellHistoryTypeDef;
+//----------------------------------------------------------------------
 
+// Globale Variablen definieren
+//----------------------------------------------------------------------
+bool cli_password_ok = false;
+volatile bool cli_tx_isr_flag = false;
+UART_HandleTypeDef *huart_shell;
+//----------------------------------------------------------------------
+// Variablen fuer die Hilfe Beschreibung der Funktionen
+//----------------------------------------------------------------------
+const char cli_help_help[]	= " * Show commands";
+const char cli_clear_help[]	= " * Clear the screen";
+const char cli_reset_help[]	= " * Reboot MCU";
+const char cli_log_help[]	= " * Controls which logs are displayed."
+							  "\n\t\"log show\" to show which logs are enabled"
+							  "\n\t\"log on/off all\" to enable/disable all logs"
+							  "\n\t\"log on/off [CAT1 CAT2 CAT3...]\" to enable/disable the logs for categories [CAT1 CAT2 CAT3...]";
+//----------------------------------------------------------------------
+// Buffer Variablen
+//----------------------------------------------------------------------
+unsigned char cBuffer;
+RingbufferShellTypeDef cli_rx_buf;
+ShellCommandTypeDef cli_commands[MAX_COMMAND_NB];
+static ShellHistoryTypeDef history;
+//----------------------------------------------------------------------
 
-/*
- * Buffer for current line
- */
-typedef struct {
-    uint8_t buff[MAX_LINE_LEN];
-    uint8_t len;
-} HANDLE_TYPE_S;
-
-/*
- * Command entry
- */
-typedef struct {
-    const char *pCmd;
-    const char *pHelp;
-    uint8_t (*pFun)(int argc, char *argv[]);
-} COMMAND_S;
-
-/*
- * Command line history
- */
-typedef struct {
-    char cmd[HISTORY_MAX][MAX_LINE_LEN];
-    uint8_t count;
-    uint8_t latest;
-    uint8_t show;
-}HISTORY_S;
-
-/*******************************************************************************
- *
- * 	Internal variables
- *
- ******************************************************************************/
-
-unsigned char 			cBuffer;
-RingbufferShellTypeDef 	cli_rx_buff; 				/* 64 bytes FIFO, saving commands from the terminal */
-UART_HandleTypeDef 		*huart_shell;
-COMMAND_S				CLI_commands[MAX_COMMAND_NB];
-static HISTORY_S 		history;
+// Variable fuer Log status
+//----------------------------------------------------------------------
+// Log Kategorien
+// Werden ueber CLI_ADDITIONAL_LOG_CATEGORIES definiert
+// Beispiel: #define CLI_ADDITIONAL_LOG_CATEGORIES 			X(CAT1, true)
+// Fuer eine Kategorie mit dem Name CAT1, Logging aktiv (true)
+//----------------------------------------------------------------------
 char *cli_logs_names[] = {"SHELL",
 #ifdef CLI_ADDITIONAL_LOG_CATEGORIES
-#define X(name, b) #name,
+	#define X(name, b) #name,
 		CLI_ADDITIONAL_LOG_CATEGORIES
-#undef X
+	#undef X
 #endif
 };
-
+//----------------------------------------------------------------------
+// Log Status, jedes Bit ist fuer eine Kategorie, Bit = 0 - Logging aus, Bit = 1 - Logging an
+//----------------------------------------------------------------------
 uint32_t cli_log_stat = 0
 #ifdef CLI_ADDITIONAL_LOG_CATEGORIES
-#define X(name, b) | (b<<CLI_LOG_##name)
+	#define X(name, b) | (b << CLI_LOG_##name)
 		CLI_ADDITIONAL_LOG_CATEGORIES
-#undef X
+	#undef X
 #endif
 ;
+//----------------------------------------------------------------------
 
-const char 				cli_help_help[] 			= "show commands";
-const char 				cli_clear_help[] 			= "clear the screen";
-const char 				cli_reset_help[] 			= "reboot MCU";
-const char				cli_log_help[]				= "Controls which logs are displayed."
-													  "\n\t\"log show\" to show which logs are enabled"
-													  "\n\t\"log on/off all\" to enable/disable all logs"
-													  "\n\t\"log on/off [CAT1 CAT2 CAT...]\" to enable/disable the logs for categories [CAT1 CAT2 CAT...]";
-bool 					cli_password_ok 			= false;
-volatile bool			cli_tx_isr_flag				= false; /*< This flag is used internally so that _write will not write text in the console if the previous call is not over yet */
+// Interne Funktionen definieren
+//----------------------------------------------------------------------
+static void cli_history_add (char* buff);
+static uint8_t cli_history_show (uint8_t mode, char** p_history);
+static void cli_rx_handle (RingbufferShellTypeDef *rx_buff);
+static void cli_tx_handle (void);
+uint8_t cli_help (int argc, char *argv[]);
+uint8_t cli_clear (int argc, char *argv[]);
+uint8_t cli_reset (int argc, char *argv[]);
+uint8_t cli_log	(int argc, char *argv[]);
+void cli_add_command (const char *command, const char *help, uint8_t (*exec)(int argc, char *argv[]));
+void shell_welcome (void);
+void cli_disable_log_entry (char *str);
+void cli_enable_log_entry (char *str);
+//----------------------------------------------------------------------
 
-/*******************************************************************************
- *
- * 	Internal functions declaration
- *
- ******************************************************************************/
-
-static void 	cli_history_add			(char* buff);
-static uint8_t 	cli_history_show		(uint8_t mode, char** p_history);
-void 			HAL_UART_RxCpltCallback	(UART_HandleTypeDef * huart);
-static void 	cli_rx_handle			(RingbufferShellTypeDef *rx_buff);
-static void 	cli_tx_handle			(void);
-uint8_t 		cli_help				(int argc, char *argv[]);
-uint8_t 		cli_clear				(int argc, char *argv[]);
-uint8_t 		cli_reset				(int argc, char *argv[]);
-uint8_t 		cli_log					(int argc, char *argv[]);
-void 			cli_add_command			(const char *command, const char *help, uint8_t (*exec)(int argc, char *argv[]));
-void 			greet					(void);
-void 			cli_disable_log_entry	(char *str);
-void 			cli_enable_log_entry	(char *str);
-
-/*******************************************************************************
- *
- * 	These functions need to be redefined over the [_weak] versions defined by
- * 	GCC (or in syscalls.c by cubeMX) to make the stdio library functional.
- *
- ******************************************************************************/
-
-int _write(int file, char *data, int len){
-	if(file != STDOUT_FILENO && file != STDERR_FILENO){
+// Ausgabe auf Console durch printf
+//----------------------------------------------------------------------
+int _write (int file, char *data, int len)
+{
+	// Fehler
+	if (file != STDOUT_FILENO && file != STDERR_FILENO)
+	{
 		errno = EBADF;
 		return -1;
 	}
 
-	if(cli_password_ok == false){
+	// Wenn Password falsch
+	if (cli_password_ok == false)
+	{
 		return len;
 	}
 
+	// Status definieren
 	HAL_StatusTypeDef status = HAL_OK;
 
-	if (!(SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk) ) {
+	// Abfrage, ob Daten ueber Interrupt versendet werden
+	if (!(SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk))
+	{
+		// Setze ISR Flag
 		cli_tx_isr_flag = true;
-		/* Disable interrupts to prevent UART from throwing an RX interrupt while the peripheral is locked as
-		 * this would prevent the RX interrupt from restarting HAL_UART_Receive_IT  */
-		HAL_NVIC_DisableIRQ(USART2_IRQn);
 
-		/* Transmits with interrupts. This must be done this way so that we can re-activate USART interrupts
-		 * before the transfer terminates so that we can continue reading from the terminal*/
+		// Schalte Interrupt fuer Uart aus, um Unterbrechungen während des Sendens zu unterbinden
+		HAL_NVIC_DisableIRQ(USART3_IRQn);
+
+		// Transmit Daten mit Interrupt Routine
 		status = HAL_UART_Transmit_IT(huart_shell, (uint8_t *)data, len);
 
-		HAL_NVIC_EnableIRQ(USART2_IRQn);
+		// Schalte Interrupt fuer Uart ein, damit Daten ordentlich gesendet werden
+		HAL_NVIC_EnableIRQ(USART3_IRQn);
 
-		/* Wait for the transfer to terminate*/
-		while(cli_tx_isr_flag == true){
-			/* flag will be set to false in HAL_UART_TxCpltCallback*/
+		// Warte bis Flag nicht mehr true ist
+		while (cli_tx_isr_flag == true)
+		{
+
 		}
-	}else{
-		/* We are called from an interrupt, using Transmit_IT would not work */
-		HAL_NVIC_DisableIRQ(USART2_IRQn);
+	}
+	// Ansonsten normal versenden
+	else
+	{
+		// Schalte Interrupt fuer Uart aus, um Unterbrechungen während des Sendens zu unterbinden
+		HAL_NVIC_DisableIRQ(USART3_IRQn);
+
+		// Transmit Daten mit Interrupt Routine
 		status = HAL_UART_Transmit(huart_shell, (uint8_t *)data, len, 1000);
-		HAL_NVIC_EnableIRQ(USART2_IRQn);
+
+		// Schalte Interrupt fuer Uart ein, damit Daten ordentlich gesendet werden
+		HAL_NVIC_EnableIRQ(USART3_IRQn);
 	}
 
-
-
-	if(status == HAL_OK){
+	// Wenn Status OK
+	if (status == HAL_OK)
+	{
+		// Rueckgabe der Datenlaenge die gesendet wurde
 		return len;
-	}else{
+	}
+	else
+	{
+		// Rueckgabe ohne Datenlaenge
 		return 0;
 	}
 }
+//----------------------------------------------------------------------
 
-__attribute__((weak)) int _isatty(int file){
-	switch(file){
-	case STDERR_FILENO:
-	case STDIN_FILENO:
-	case STDOUT_FILENO:
-		return 1;
-	default:
-		errno = EBADF;
-		return 0;
+// Check ob Ausgabe Console ist
+//----------------------------------------------------------------------
+__attribute__((weak)) int _isatty (int file)
+{
+	switch (file)
+	{
+		case STDERR_FILENO:
+		case STDIN_FILENO:
+		case STDOUT_FILENO:
+			return 1;
+		default:
+			errno = EBADF;
+			return 0;
 	}
 }
+//----------------------------------------------------------------------
 
-/*******************************************************************************
- *
- * 	Functions definitions
- *
- ******************************************************************************/
-
-/**
-  * @brief          add a command to the history
-  * @param  buff:   command
-  * @retval         null
-  */
-static void cli_history_add(char* buff)
+// Console initialisieren
+//----------------------------------------------------------------------
+void cli_init (UART_HandleTypeDef *handle_uart)
 {
-    uint16_t len;
-    uint8_t index = history.latest;
-
-    if (NULL == buff) return;
-
-    len = strlen((const char *)buff);
-    if (len >= MAX_LINE_LEN) return;  /* command too long */
-
-    /* find the latest one */
-    if (0 != index) {
-        index--;
-    } else {
-        index = HISTORY_MAX - 1;
-    }
-
-    if (0 != memcmp(history.cmd[index], buff, len)) {
-        /* if the new one is different with the latest one, the save */
-        memset((void *)history.cmd[history.latest], 0x00, MAX_LINE_LEN);
-        memcpy((void *)history.cmd[history.latest], (const void *)buff, len);
-        if (history.count < HISTORY_MAX) {
-            history.count++;
-        }
-
-        history.latest++;
-        if (history.latest >= HISTORY_MAX) {
-            history.latest = 0;
-        }
-    }
-
-    history.show = 0;
-}
-
-
-/**
-  * @brief              returns a command from the history
-  * @param  mode:       TRUE for look up, FALSE for look down
-  * @param  p_history:  target history command
-  * @retval             TRUE for no history found, FALSE for success
-  */
-static uint8_t cli_history_show(uint8_t mode, char** p_history)
-{
-    uint8_t err = true;
-    uint8_t num;
-    uint8_t index;
-
-    if (0 == history.count) return err;
-
-    if (true == mode) {
-        /* look up */
-        if (history.show < history.count) {
-            history.show++;
-        }
-    } else {
-        /* look down */
-        if (1 < history.show) {
-            history.show--;
-        }
-    }
-
-    num = history.show;
-    index = history.latest;
-    while (num) {
-        if (0 != index) {
-            index--;
-        } else {
-            index = HISTORY_MAX - 1;
-        }
-        num--;
-    }
-
-    err = false;
-    *p_history = history.cmd[index];
-
-    return err;
-}
-
-void cli_init(UART_HandleTypeDef *handle_uart)
-{
+	// Uart Handler uebergeben
 	huart_shell = handle_uart;
-	shell_ringbuffer_init(&cli_rx_buff);
-    memset((uint8_t *)&history, 0, sizeof(history));
 
-    HAL_UART_MspInit(huart_shell);
-    HAL_UART_Receive_IT(huart_shell, &cBuffer, 1);
+	// Ringbuffer initialisieren
+	shell_ringbuffer_init(&cli_rx_buf);
 
-    for(size_t j = 0; j < MAX_COMMAND_NB; j++){
-    	CLI_commands[j].pCmd = "";
-    	CLI_commands[j].pFun = NULL;
+	// Reserviere Speicherplatz fuer Historie
+	memset((uint8_t *)&history, 0, sizeof(history));
+
+	// Commandliste loeschen und auf Null setzen
+    for (uint8_t j = 0; j < MAX_COMMAND_NB; j++)
+    {
+    	cli_commands[j].pCmd = "";
+    	cli_commands[j].pFun = NULL;
     }
 
+	// Starte UART
+	HAL_UART_MspInit(handle_uart);
+	HAL_UART_Receive_IT(handle_uart, &cBuffer, 1);
+
+	// Willkommensbildschirm ausgeben
 #ifndef CLI_PASSWORD
     cli_password_ok = true;
-    greet();
+    shell_welcome();
+#else
+    uartTransmitString("\033[0;40m\033[2J\033[H\033[0;32m#$ Password");		// Background default, Clear Display, Reset Cursor, Schriftfarbe Gruen
 #endif
 
-    CLI_ADD_CMD("help", cli_help_help, cli_help);
+	// Commands definieren und in Commandliste speichern
+	CLI_ADD_CMD("help", cli_help_help, cli_help);
     CLI_ADD_CMD("cls", cli_clear_help, cli_clear);
     CLI_ADD_CMD("reset", cli_reset_help, cli_reset);
     CLI_ADD_CMD("log", cli_log_help, cli_log);
 
-    if(CLI_LAST_LOG_CATEGORY > 32){
+	// Logging ausgeben
+	if (CLI_LAST_LOG_CATEGORY > 32)
+	{
+		// Fehlerausgabe wenn CLI_LAST_LOG_CATEGORY > 32
     	ERR("Too many log categories defined. The max number of log categories that can be user defined is 31.\n");
     }
+	else
+	{
+		// Logging
+		LOG(CLI_LOG_SHELL, "Command line successfully initialized.\n");
+	}
 
-    LOG(CLI_LOG_SHELL, "Command line successfully initialized.\n");
 
+	LOG(CLI_LOG_CAT1, "Command line successfully initialized.\n");
+	LOG(CLI_LOG_CAT2, "Command line successfully initialized.\n");
+	LOG(CLI_LOG_CAT3, "Command line successfully initialized.\n");
 }
+//----------------------------------------------------------------------
 
-/*
- * Callback function for UART IRQ when it is done receiving a char
- */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef * huart){
-	shell_addToRingBuffer(&cli_rx_buff, &cBuffer);
-	HAL_UART_Receive_IT(huart, &cBuffer, 1);
-}
-
-/*
- * Callback function for UART IRQ when it is done transmitting data
- */
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef * huart){
-	cli_tx_isr_flag = false;
-}
-
-/**
-  * @brief  handle commands from the terminal
-  * @param  commands
-  * @retval null
-  */
-static void cli_rx_handle(RingbufferShellTypeDef *rx_buff)
+// Console ausfuehren
+//----------------------------------------------------------------------
+void cli_run (void)
 {
-    static HANDLE_TYPE_S Handle = {.len = 0, .buff = {0}};
-    uint8_t i = Handle.len;
-    uint8_t cmd_match = false;
-    uint8_t exec_req = false;
+	cli_rx_handle(&cli_rx_buf);
+	cli_tx_handle();
+}
+//----------------------------------------------------------------------
 
-    /*  ---------------------------------------
-        Step1: save chars from the terminal
-        ---------------------------------------
-     */
-    bool newChar = true;
-    while(newChar) {
-        if(Handle.len < MAX_LINE_LEN) {  /* check the buffer */
-        	newChar = shell_removeFromRingBuffer(rx_buff, Handle.buff+Handle.len);
+// Empfange Nachricht
+//----------------------------------------------------------------------
+static void cli_rx_handle (RingbufferShellTypeDef *rx_buf)
+{
+	// Variablen definieren
+	static ShellHandleTypeDef Handle = {.length = 0, .buf = {0}};
+	uint8_t i = Handle.length;
+	bool cmd_match = false;
+	bool exec_req = false;
 
-            /* new char coming from the terminal, copy it to Handle.buff */
-            if(newChar) {
-                /* KEY_BACKSPACE -->get DELETE key from keyboard */
-                if (Handle.buff[Handle.len] == KEY_BACKSPACE || Handle.buff[Handle.len] == KEY_DEL) {
-                    /* buffer not empty */
-                    if (Handle.len > 0) {
-                        /* delete a char in terminal */
-                        TERMINAL_MOVE_LEFT(1);
-                        TERMINAL_CLEAR_END();
-                        Handle.buff[Handle.len] = '\0';
-                        Handle.len--;
-                    }
+	// Step 1, Character von Terminal einlesen
+	bool newChar = true;
+	while (newChar)
+	{
+		// Wenn Handle.length < MAX_LINE_LENGTH
+		if (Handle.length < MAX_LINE_LENGTH)
+		{
+			// Character aus Ringpuffer entfernen
+			newChar = shell_removeFromRingBuffer(rx_buf, Handle.buf + Handle.length);
 
-                } else if(Handle.buff[Handle.len] == KEY_ENTER){
-                	exec_req = true;
-                	Handle.len++;
-                }else if(strstr((const char *)Handle.buff, KEY_DELETE) != NULL){
-                	strcpy((char *)&Handle.buff[Handle.len-3], (char *)&Handle.buff[Handle.len+1]);
-                	Handle.len -= 3;
-            	}else{
-                    Handle.len++;
-                }
+			// Wenn im Ringpuffer noch ein Zeichen vorhanden war
+			if (newChar)
+			{
+				// Wenn Zeichen Backspace oder Del ist
+				if (Handle.buf[Handle.length] == KEY_BACKSPACE || Handle.buf[Handle.length] == KEY_DEL)
+				{
+					// Wenn Handle.length > 0 ist
+					if (Handle.length > 0)
+					{
+						// Loesche letztes Zeichen
+						TERMINAL_MOVE_LEFT(1);
+						TERMINAL_CLEAR_END();
 
-            } else if(cli_password_ok){
-                /* all chars copied to Handle.buff */
-                uint8_t key = 0;
-                uint8_t err = 0xff;
-                char *p_hist_cmd = 0;
+						// Zeichen in buf mit "\0" ueberschreiben
+						Handle.buf[Handle.length] = '\0';
 
-                if (Handle.len >= 3) {
-                    if (strstr((const char *)Handle.buff, KEY_UP) != NULL) {
-                        key = 1;
-                        TERMINAL_MOVE_LEFT(Handle.len-3);
-                        TERMINAL_CLEAR_END();
-                        err = cli_history_show(true, &p_hist_cmd);
-                    } else if (strstr((const char *)Handle.buff, KEY_DOWN) != NULL) {
-                        key = 2;
-                        TERMINAL_MOVE_LEFT(Handle.len-3);
-                        TERMINAL_CLEAR_END();
-                        err = cli_history_show(false, &p_hist_cmd);
-                    } else if (strstr((const char *)Handle.buff, KEY_RIGHT) != NULL) {
-                        key = 3;
-                    } else if (strstr((const char *)Handle.buff, KEY_LEFT) != NULL) {
-                        key = 4;
-                    }
-
-                    if (key != 0) {
-                        if (!err) {
-                            memset(&Handle, 0x00, sizeof(Handle));
-                            memcpy(Handle.buff, p_hist_cmd, strlen(p_hist_cmd));
-                            Handle.len = strlen(p_hist_cmd);
-                            Handle.buff[Handle.len] = '\0';
-                            printf("%s", Handle.buff);  /* display history command */
-                        } else if (err && (0 != key)) {
-                            /* no history found */
-                            TERMINAL_MOVE_LEFT(Handle.len-3);
-                            TERMINAL_CLEAR_END();
-                            memset(&Handle, 0x00, sizeof(Handle));
-                        }
-                    }
-                }
-
-                if ((key == 0) && (Handle.len > i)) {
-                    /* display char in terminal */
-                    for (; i < Handle.len; i++) {
-                    	printf("%c", Handle.buff[i]);
-
-                    }
-                }
-                break;
-            }
-
-        } else {
-            /* buffer full */
-            break;
-        } /*end if(Handle.len > HANDLE_LEN) */
-    } /* end While(1) */
-
-    /*  ---------------------------------------
-        Step2: handle the commands
-        ---------------------------------------
-     */
-    if(exec_req && !cli_password_ok){
-#ifdef CLI_PASSWORD
-    	Handle.buff[Handle.len-1] = '\0';
-    	if(strcmp((char *)Handle.buff, XSTRING(CLI_PASSWORD)) == 0){
-    		cli_password_ok = true;
-    		greet();
-    	}
-    	Handle.len = 0;
-#else
-    	cli_password_ok = true;
-    	greet();
-#endif
-    }else if(exec_req && (Handle.len == 1)) {
-        /* KEY_ENTER -->ENTER key from terminal */
-    	PRINT_CLI_NAME();
-        Handle.len = 0;
-    } else if(exec_req && Handle.len > 1) {  /* check for the length of command */
-		NL1();
-		Handle.buff[Handle.len - 1] = '\0';
-		cli_history_add((char *)Handle.buff);
-		char *command = strtok((char *)Handle.buff, " \t");
-
-		/* looking for a match */
-		for(i = 0; i < MAX_COMMAND_NB; i++) {
-			if(0 == strcmp(command, CLI_commands[i].pCmd)) {
-				cmd_match = true;
-
-				//Split arguments string to argc/argv
-				uint8_t argc = 1;
-				char 	*argv[MAX_ARGC];
-				argv[0] = command;
-
-				char *token = strtok(NULL, " \t");
-				while(token != NULL){
-					if(argc >= MAX_ARGC){
-						printf(CLI_FONT_RED "Maximum number of arguments is %d. Ignoring the rest of the arguments."CLI_FONT_DEFAULT, MAX_ARGC-1);NL1();
-						break;
+						// length runterzaehlen
+						Handle.length--;
 					}
-					argv[argc] = token;
-					argc++;
-					token = strtok(NULL, " \t");
+
+				}
+				// Wenn Zeichen Enter ist
+				else if (Handle.buf[Handle.length] == KEY_ENTER)
+				{
+					// Speichern das Ausfuehren erforderlich ist
+					exec_req = true;
+
+					// length hochzaehlen
+					Handle.length++;
+				}
+				// Wenn String Delete ist
+				else if (strstr((const char *)Handle.buf, KEY_DELETE) != NULL)
+				{
+					strcpy((char *)&Handle.buf[Handle.length - 3], (char *)&Handle.buf[Handle.length + 1]);
+					Handle.length -= 3;
+				}
+				// Ansonsten
+				else
+				{
+					// length hochzaehlen
+					Handle.length++;
 				}
 
-				if(CLI_commands[i].pFun != NULL) {
-					/* call the func. */
-					TERMINAL_HIDE_CURSOR();
-					uint8_t result = CLI_commands[i].pFun(argc, argv);
+			}
+			// Wenn Passwort OK
+			else if (cli_password_ok)
+			{
 
-					if(result == EXIT_SUCCESS){
-						printf(CLI_FONT_GREEN "(%s returned %d)" CLI_FONT_DEFAULT, command, result);NL1();
-					}else{
-						printf(CLI_FONT_RED "(%s returned %d)" CLI_FONT_DEFAULT, command, result);NL1();
+				uint8_t key = 0;
+				uint8_t err = 0xff;
+				char *p_hist_cmd = 0;
+
+				// Wenn length >= 3, dann Pfeiltasten betaetigt
+				if (Handle.length >= 3)
+				{
+					// Pruefen, Taste Oben gedrueckt
+					if (strstr((const char *)Handle.buf, KEY_UP) != NULL)
+					{
+						key = 1;
+						TERMINAL_MOVE_LEFT(Handle.length - 3);
+						TERMINAL_CLEAR_END();
+
+						//
+						err = cli_history_show(true, &p_hist_cmd);
+					}
+					// Pruefen, Taste unten gedrueckt
+					else if (strstr((const char *)Handle.buf, KEY_DOWN) != NULL)
+					{
+						key = 2;
+						TERMINAL_MOVE_LEFT(Handle.length - 3);
+						TERMINAL_CLEAR_END();
+
+						//
+						err = cli_history_show(false, &p_hist_cmd);
+					}
+					// Pruefen, Taste rechts gedrueckt
+					else if (strstr((const char *)Handle.buf, KEY_RIGHT) != NULL)
+					{
+						key = 3;
+					}
+					// Pruefen, Taste links gedrueckt
+					else if (strstr((const char *)Handle.buf, KEY_LEFT) != NULL)
+					{
+						key = 4;
+					}
+
+					// Wenn Taste gedrueckt wurde, key ungleich 0 ist
+					if (key != 0)
+					{
+						// Wenn Eintrag in Historie vorhanden
+						if (!err)
+						{
+							// Speicher reservieren und mit Historieneintrag fuellen
+							memset(&Handle, 0x00, sizeof(Handle));
+							memcpy(Handle.buf, p_hist_cmd, strlen(p_hist_cmd));
+
+							// length auf Zeichenketten laenge setzen
+							Handle.length = strlen(p_hist_cmd);
+							Handle.buf[Handle.length] = '\0';
+
+							// Historieneintrag ausgeben
+							printf("%s", Handle.buf);
+						}
+						// Wenn kein Eintrag in Historie vorhanden und Taste gedrueckt
+						else if (err && (0 != key))
+						{
+							TERMINAL_MOVE_LEFT(Handle.length - 3);
+							TERMINAL_CLEAR_END();
+							memset(&Handle, 0x00, sizeof(Handle));
+						}
+					}
+				}
+
+				// Wenn keine Taste gedrueckt und length > 1 ist
+				if ((key == 0) && (Handle.length > i))
+				{
+					// Fuer jeden Character im Handler durchfuehren
+					for (; i < Handle.length; i++)
+					{
+						// Character zurueck auf Terminal ausgeben
+						printf("%c", Handle.buf[i]);
+
+					}
+				}
+
+				// Schleife beenden
+				break;
+			}
+
+		}
+		else
+		{
+			// Schleife beenden
+			break;
+		}
+	}
+
+	// Step 2, Command verarbeiten
+	// Abfrage ob Password OK
+	if (exec_req && !cli_password_ok)
+	{
+		// Wenn nicht Password vergleichen
+#ifdef CLI_PASSWORD
+		Handle.buf[Handle.length - 1] = '\0';
+		
+		// Vergleich Password
+		if (strcmp((char *)Handle.buf, CLI_PASSWORD) == 0)
+		{
+			// Wenn Password uebereinstimmt
+			cli_password_ok = true;
+			
+			// Willkommensbildschirm ausgeben
+			shell_welcome();
+		}
+		
+		// Handler zuruecksetzen
+		Handle.length = 0;
+#else
+		// Willkommensbildschirm ausgeben
+		cli_password_ok = true;
+		shell_welcome();
+#endif
+	}
+	// Pruefen, ob length == 1
+	else if (exec_req && (Handle.length == 1))
+	{
+		// Nur Enter wurde betaetigt, Shell Namen ausgeben
+		PRINT_CLI_NAME();
+		Handle.length = 0;
+	}
+	// Pruefen, length > 1
+	else if (exec_req && Handle.length > 1)
+	{
+		// Neue Zeile
+		NL1();
+		
+		// Command in Historie schreiben
+		Handle.buf[Handle.length - 1] = '\0';
+		cli_history_add((char *)Handle.buf);
+		
+		// Comand aus String extrahieren
+		char *command = strtok((char *)Handle.buf, " \t");
+
+		// Fuer jeden Command durchfuehren
+		for (i = 0; i < MAX_COMMAND_NB; i++)
+		{
+			// Pruefen, ob erstes Argment einem Command entspricht
+			if (0 == strcmp(command, cli_commands[i].pCmd))
+			{
+				// Wenn true
+				cmd_match = true;
+
+				// Variablen fuer Argumente definieren
+				uint8_t argc = 1;
+				char *argv[MAX_ARGC];
+				argv[0] = command;
+				
+				// Erstes Argument aus String extrahieren
+				char *token = strtok(NULL, " \t");
+				
+				// Endlosschleife bis Argument NULL
+				while (token != NULL)
+				{
+					// Pruefen, ob argc >= MAX_ARGC
+					if (argc >= MAX_ARGC)
+					{
+						// Wenn true
+						printf(CLI_FONT_RED "Maximum number of arguments is %d. Ignoring the rest of the arguments."CLI_FONT_DEFAULT, MAX_ARGC - 1);
+						NL1();
+						break;
+					}
+					
+					// Argument in Array speichern
+					argv[argc] = token;
+					argc++;
+					
+					// Naechstes Argument aus String extrahieren
+					token = strtok(NULL, " \t");
+				}
+				
+				// Pruefen, ob Funktion definiert ist
+				if (cli_commands[i].pFun != NULL)
+				{
+					// Wenn Funktion definert, dann Funktion ausfuehren
+					TERMINAL_HIDE_CURSOR();
+					uint8_t result = cli_commands[i].pFun(argc, argv);
+					
+					// Pruefen, ob Funktion erfolgreich ausgefuehrt wurde
+					if (result == EXIT_SUCCESS)
+					{
+						// Erfolgreich
+						printf(CLI_FONT_GREEN "(%s returned %d)" CLI_FONT_DEFAULT, command, result);
+						NL1();
+					}
+					// Funktion nicht erfolgreich
+					else
+					{
+						// Fehlerausgabe
+						printf(CLI_FONT_RED "(%s returned %d)" CLI_FONT_DEFAULT, command, result);
+						NL1();
 					}
 					TERMINAL_SHOW_CURSOR();
 					break;
-				} else {
-					/* func. is void */
-					printf(CLI_FONT_RED "Command %s exists but no function is associated to it.", command);NL1();
+				}
+				// Funktion nicht definiert
+				else
+				{
+					// Fehlerausgabe
+					printf(CLI_FONT_RED "Command %s exists but no function is associated to it.", command);
+					NL1();
 				}
 			}
 		}
-
-		if(!cmd_match) {
-			/* no matching command */
-			printf("\r\nCommand \"%s\" unknown, try: help", Handle.buff);NL1();
+		
+		// Wenn Command nicht in Commandliste
+		if (!cmd_match)
+		{
+			// Fehlerausgabe
+			printf("\r\nCommand \"%s\" unknown, try: help", Handle.buf);
+			NL1();
 		}
-
-		Handle.len = 0;
+		
+		// length zuruecksetzen und Namen ausgeben
+		Handle.length = 0;
 		PRINT_CLI_NAME();
-
-    }
-
-
-    if(Handle.len >= MAX_LINE_LEN) {
-        /* full, so restart the count */
-    	printf(CLI_FONT_RED "\r\nMax command length is %d.\r\n" CLI_FONT_DEFAULT, MAX_LINE_LEN-1);
-    	PRINT_CLI_NAME();
-        Handle.len = 0;
-    }
+	}
+	
+	// Pruefen, ob maximale length ueberschritten wird
+	if (Handle.length >= MAX_LINE_LENGTH)
+	{
+		// Fehlerausgabe, bei zu langer Terminaleingabe
+		printf(CLI_FONT_RED "\r\nMax command length is %d.\r\n" CLI_FONT_DEFAULT, MAX_LINE_LEN-1);
+		
+		// length zuruecksetzen und Namen ausgeben
+		Handle.length = 0;
+		PRINT_CLI_NAME();
+	}
 }
+//----------------------------------------------------------------------
 
-
-/**
-  * @brief  tx handle, flushes stdout buffer
-  * @param  null
-  * @retval null
-  */
-static void cli_tx_handle(void)
+// Transmit Nachricht
+//----------------------------------------------------------------------
+static void cli_tx_handle (void)
 {
     fflush(stdout);
 }
+//----------------------------------------------------------------------
 
-void cli_run(void)
+// Command zu Commandliste hinzufügen
+//----------------------------------------------------------------------
+void cli_add_command (const char *command, const char *help, uint8_t (*exec)(int argc, char *argv[]))
 {
-    cli_rx_handle(&cli_rx_buff);
-    cli_tx_handle();
-}
+	// Variable definieren
+	uint8_t i = 0;
 
-void greet(void){
-    NL1();
-    TERMINAL_BACK_DEFAULT(); /* set terminal background color: black */
-    TERMINAL_DISPLAY_CLEAR();
-    TERMINAL_RESET_CURSOR();
-    TERMINAL_FONT_BLUE();
-    uartTransmitString("                             ///////////////////////////////////////////    ");NL1();
-    uartTransmitString("                             /////*   .////////////////////////     *///    ");NL1();
-    uartTransmitString("            %%%         %%%  ///   ////  //   //////////  //   ////   //    ");NL1();
-    uartTransmitString("            %%%        %%%   ///  //////////   ////////  ///  //////////    ");NL1();
-    uartTransmitString("           %%%        %%%%   ((((   (((((((((   ((((((  (((((   .(((((((    ");NL1();
-    uartTransmitString("          %%%        %%%%    (((((((    (((((((  ((((  (((((((((    ((((    ");NL1();
-    uartTransmitString("          %%%      %%  %%    ((((((((((   ((((((  ((  ((((((((((((((  ((    ");NL1();
-    uartTransmitString("         %%%%    %%%   %%%%  (((*((((((  .(((((((    ((((((( ((((((   ((    ");NL1();
-    uartTransmitString("         %%*%%%%%%           (((        (((((((((   ((((((((        ((((    ");NL1();
-    uartTransmitString("        %%   %%.             ###################   ##################### (((");NL1();
-    uartTransmitString("       %%%          (((      ##################   ##################((((((( ");NL1();
-    uartTransmitString("       %%               (((( #################   ##############(((((((##    ");NL1();
-    uartTransmitString("      %%%                   (((((((((##################((((((((((#######    ");NL1();
-    uartTransmitString("     %%%                     ########(((((((((((((((((((################    ");NL1();
-    uartTransmitString("     %%%                     ##%#%#%#%#%#%#%#%#%#%#%#%#%#%#%#%#%#%#%#%#%    ");NL1();
-    uartTransmitString("    %%%                      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    ");NL1();
-    uartTransmitString("    %%%                      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    ");NL1();
-    uartTransmitString("                             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    ");NL1();
-    uartTransmitString("                             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    ");NL1();
-    uartTransmitString("µShell v0.1 - by Morgan Diepart (mdiepart@uliege.be)");NL1();
-    uartTransmitString("Original work from https://github.com/ShareCat/STM32CommandLine");NL1();
-    uartTransmitString("-------------------------------");
-    NL2();
-    TERMINAL_FONT_DEFAULT();
-    PRINT_CLI_NAME();
-    TERMINAL_SHOW_CURSOR();
-}
+	// Commandliste fuellen
+	for (; i < MAX_COMMAND_NB; i++)
+	{
+		if (strcmp(cli_commands[i].pCmd, "") == 0)
+		{
+			cli_commands[i].pCmd = command;
+			cli_commands[i].pFun = exec;
+			cli_commands[i].pHelp = help;
+			break;
+		}
+	}
 
-/*************************************************************************************
- * Shell builtin functions
- ************************************************************************************/
-/**
-  * @brief  printf the help info.
-  * @param  para addr. & length
-  * @retval True means OK
-  */
-uint8_t cli_help(int argc, char *argv[])
+	// Logging ausgeben
+	if (i == MAX_COMMAND_NB)
+	{
+		// Fehlerausgabe wenn i == MAX_COMMAND_NB
+		ERR("Cannot add command %s, max number of commands "
+			"reached. The maximum number of command is set to %d.\n" CLI_FONT_DEFAULT,
+			command, MAX_COMMAND_NB);
+		NL1();
+	}
+	else
+	{
+		// Logging
+		LOG(CLI_LOG_SHELL, "Command %s added to shell.\n", command);
+	}
+}
+//----------------------------------------------------------------------
+
+// Willkommensbildschirm fuer Console
+//----------------------------------------------------------------------
+__weak void shell_welcome (void)
 {
-	if(argc == 1){
-	    for(size_t i = 0; i < MAX_COMMAND_NB; i++) {
-	    	if(strcmp(CLI_commands[i].pCmd, "") != 0){
-		    	printf("[%s]", CLI_commands[i].pCmd);NL1();
-		        if (CLI_commands[i].pHelp) {
-		            printf(CLI_commands[i].pHelp);NL2();
+	NL1();
+	TERMINAL_BACK_DEFAULT(); /* set terminal background color: black */
+	TERMINAL_DISPLAY_CLEAR();
+	TERMINAL_RESET_CURSOR();
+	TERMINAL_FONT_BLUE();
+	printf("###################################################################################################\n");
+	printf("###################################################################################################\n");		// Auskommentieren fuer schmalleren Header
+	printf("###################################################################################################\n");		// Auskommentieren fuer schmalleren Header
+	printf("###################################################################################################\n");
+	printf("###     ###    ##  ###  ##      ##      ##  ##  ##     ###      ##  ######      ###    ####    ####\n");
+	printf("###  ##  ###  ###  ###  ##  ########  ####  ##  ##  ##  ####  ####  ######  ######  ##  ##  ##  ###\n");		// Auskommentieren fuer schmalleren Header
+	printf("###  ##  ###  ###  ###  ##  ########  ####  ##  ##  ##  ####  ####  ######  ######  ##  ######  ###\n");
+	printf("###  ##  ###  ###  ###  ##    ######  ####  ##  ##     #####  ####  ######    #####     ####   ####\n");
+	printf("###  ##  ###  ####  #  ###  ########  ####  ##  ##  #  #####  ####  ######  ##########  ######  ###\n");
+	printf("###  ##  ###  ####  #  ###  ########  ####  ##  ##  ##  ####  ####  ######  ##########  ##  ##  ###\n");		// Auskommentieren fuer schmalleren Header
+	printf("###     ###    ####   ####      ####  #####    ###  ##  ####  ####      ##      ###    ####    ####\n");
+	printf("###################################################################################################\n");
+	printf("###################################################################################################\n");		// Auskommentieren fuer schmalleren Header
+	printf("###################################################################################################\n");		// Auskommentieren fuer schmalleren Header
+	printf("###################################################################################################\n");
+	NL2();
+	TERMINAL_FONT_DEFAULT();
+	PRINT_CLI_NAME();
+	TERMINAL_SHOW_CURSOR();
+}
+//----------------------------------------------------------------------
+
+// Command in Historie hinzufuegen
+//----------------------------------------------------------------------
+static void cli_history_add (char* buf)
+{
+	// Variablen definieren
+	uint16_t len;
+	uint8_t index = history.latest;
+
+	// Wenn buf = 0
+	if (NULL == buf)
+	{
+		// Beenden
+		return;
+	}
+
+	// Laenge ermitteln
+	len = strlen((const char *)buf);
+
+	// Wenn len groesser als MAX_LINE_LENGTH
+	if (len >= MAX_LINE_LENGTH)
+	{
+		// Beenden
+		return;
+	}
+
+	// Wenn index ungleich 0 ist
+	if (0 != index)
+	{
+		// index runterzaehlen
+		index--;
+	}
+	// Ansonsten
+	else
+	{
+		// Zum hoechsten Historieeintrag springen
+		index = HISTORY_MAX - 1;
+	}
+
+	// Wenn aktuelle Befehl nicht mit letztem Historieeintrag uebereinstimmt
+	if (0 != memcmp(history.cmd[index], buf, len))
+	{
+		// Speicher reservieren und Daten kopieren
+		memset((void *)history.cmd[history.latest], 0x00, MAX_LINE_LENGTH);
+		memcpy((void *)history.cmd[history.latest], (const void *)buf, len);
+
+		// count < HISTORY_MAX
+		if (history.count < HISTORY_MAX)
+		{
+			// count hochzaehlen
+			history.count++;
+		}
+
+		// latest hochzaehlen
+		history.latest++;
+
+		// Wenn latest >= HISTORY_MAX, dann Elemente ueberschreiben
+		if (history.latest >= HISTORY_MAX)
+		{
+			// Erstes Element der History ueberschrieben
+			history.latest = 0;
+		}
+	}
+
+	// History show deaktivieren
+	history.show = 0;
+}
+//----------------------------------------------------------------------
+
+// Historie anzeigen
+//----------------------------------------------------------------------
+static uint8_t cli_history_show (uint8_t mode, char** p_history)
+{
+	// Variablen definieren
+	uint8_t err = true;
+	uint8_t num;
+	uint8_t index;
+
+	// Abfrage, ob Historie = 0 ist
+	if (0 == history.count)
+	{
+		// Kein Eintrag in Historie vorhanden
+		return err;
+	}
+
+	// Abfrage, ob Mode = true ist
+	if (true == mode)
+	{
+		// Wenn show < count ist
+		if (history.show < history.count)
+		{
+			// show hochzaehlen
+			history.show++;
+		}
+	}
+	// Wenn mode nicht true ist
+	else
+	{
+		// Wenn show > 1 ist
+		if (1 < history.show)
+		{
+			// show runterzaehlen
+			history.show--;
+		}
+	}
+
+	// Daten abpeichern
+	num = history.show;
+	index = history.latest;
+
+	// Solange num nicht 0 ist
+	while (num)
+	{
+		// Wenn index ungleich 0 ist
+		if (0 != index)
+		{
+			// index runterzaehöen
+			index--;
+		}
+		// Ansonsten
+		else
+		{
+			// Zum hoechsten Historieeintrag springen
+			index = HISTORY_MAX - 1;
+		}
+
+		// Num runterzaehlen
+		num--;
+	}
+
+	// Command zurueckschrieben in *p_history
+	err = false;
+	*p_history = history.cmd[index];
+
+	// Eintrag in Historie vorhanden
+	return err;
+}
+//----------------------------------------------------------------------
+
+// Receive Interrupt Funktion
+//----------------------------------------------------------------------
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef * huart)
+{
+	shell_addToRingBuffer(&cli_rx_buf, &cBuffer);
+	HAL_UART_Receive_IT(huart, &cBuffer, 1);
+}
+//----------------------------------------------------------------------
+
+// Transmit Interrupt Funktion
+//----------------------------------------------------------------------
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef * huart)
+{
+	cli_tx_isr_flag = false;
+}
+//----------------------------------------------------------------------
+
+// Ausgabe Hilfe
+//----------------------------------------------------------------------
+uint8_t cli_help (int argc, char *argv[])
+{
+	// Leerzeile
+	NL1();
+	
+	// Abfrage ob Argument eins ist
+	if (argc == 1)
+	{
+		// Ausgabe fuer jeden Command
+	    for (uint8_t i = 0; i < MAX_COMMAND_NB; i++)
+	    {
+	    	// Wenn Command ungleich ""
+	    	if (strcmp(cli_commands[i].pCmd, "") != 0)
+	    	{
+	    		// Ausgabe Command
+		    	printf(CLI_FONT_YELLOW"[%s]"CLI_FONT_DEFAULT, cli_commands[i].pCmd);
+		    	NL1();
+
+		    	// Wenn Hilfe fuer Command vorhanden
+		        if (cli_commands[i].pHelp)
+		        {
+		        	// Ausgabe Hilfe fuer Command
+		            printf(cli_commands[i].pHelp);
+		            NL2();
 		        }
 	    	}
 	    }
+
+	    // Erfolgreich beenden der Funktion
 	    return EXIT_SUCCESS;
-	}else if(argc == 2){
-	    for(size_t i = 0; i < MAX_COMMAND_NB; i++) {
-	    	if(strcmp(CLI_commands[i].pCmd, argv[1]) == 0){
-		    	printf("[%s]", CLI_commands[i].pCmd);NL1();
-	    		printf(CLI_commands[i].pHelp);NL1();
+	}
+	// Wenn Argumente = 2
+	else if (argc == 2)
+	{
+		// Ausgabe fuer jeden Command
+	    for (uint8_t i = 0; i < MAX_COMMAND_NB; i++)
+	    {
+	    	// Wenn Command mit zweitem Argument uebereinstimmt
+	    	if (strcmp(cli_commands[i].pCmd, argv[1]) == 0)
+	    	{
+	    		// Command ausgeben
+		    	printf(CLI_FONT_YELLOW"[%s]"CLI_FONT_DEFAULT, cli_commands[i].pCmd);
+		    	NL1();
+
+		    	// Hilfe fuer Command ausgeben
+	    		printf(cli_commands[i].pHelp);
+	    		NL1();
+
+	    	    // Erfolgreich beenden der Funktion
 	    		return EXIT_SUCCESS;
 	    	}
 	    }
-	    printf("No help found for command %s.", argv[1]);NL1();
+
+	    // Ausgabe kein Command gefunden
+	    printf("No help found for command %s.", argv[1]);
+	    NL1();
 	    return EXIT_FAILURE;
-	}else{
-		printf("Command \"%s\" takes at most 1 argument.", argv[0]);NL1();
+	}
+	// Ansonsten
+	else
+	{
+		// Ausgabe Fehler
+		printf("Command \"%s\" takes at most 1 argument.", argv[0]);
+		NL1();
 		return EXIT_FAILURE;
 	}
+
+	// Wenn Funktion bisher nicht erfolgreich beendet wurde mit Fehler beenden
     return EXIT_FAILURE;
 }
+//----------------------------------------------------------------------
 
-/**
-  * @brief  clear the screen
-  * @param  para addr. & length
-  * @retval True means OK
-  */
-uint8_t cli_clear(int argc, char *argv[])
+// Loesche Ausgabe
+//----------------------------------------------------------------------
+uint8_t cli_clear (int argc, char *argv[])
 {
-	if(argc != 1){
-		printf("command \"%s\" does not take any argument.", argv[0]);NL1();
+	// Abfrage ob Argumente mehr als eins ist
+	if (argc != 1)
+	{
+		// Wenn keine Argumente vorhanden
+		printf("command \"%s\" does not take any argument.", argv[0]);
+		NL1();
 		return EXIT_FAILURE;
 	}
-    TERMINAL_BACK_DEFAULT(); /* set terminal background color: black */
-    TERMINAL_FONT_DEFAULT(); /* set terminal display color: green */
 
-    /* This prints the clear screen and move cursor to top-left corner control
-     * characters for VT100 terminals. This means it will not work on
-     * non-VT100 compliant terminals, namely Windows' cmd.exe, but should
-     * work on anything unix-y. */
+	// Terminal auf Default Einstellungen setzen
+    TERMINAL_BACK_DEFAULT();
+    TERMINAL_FONT_DEFAULT();
+
+    // Reset Cursor
     TERMINAL_RESET_CURSOR();
+
+    // Loesche Bildschirm
     TERMINAL_DISPLAY_CLEAR();
 
     return EXIT_SUCCESS;
 }
+//----------------------------------------------------------------------
 
-/**
-  * @brief  MCU reboot
-  * @param  para addr. & length
-  * @retval True means OK
-  */
-uint8_t cli_reset(int argc, char *argv[])
+// Reset MCU
+//----------------------------------------------------------------------
+uint8_t cli_reset (int argc, char *argv[])
 {
-	if(argc > 1){
-		printf("Command \"%s\" takes no argument.", argv[0]);NL1();
+	// Abfrage ob Argumente mehr als eins ist
+	if (argc > 1)
+	{
+		// Wenn zu wenige Argumente im Befehl stehen
+		printf("Command \"%s\" takes no argument.", argv[0]);
+		NL1();
 		return EXIT_FAILURE;
 	}
 
-	NL1();printf("[END]: System Rebooting");NL1();
+	// Ausgabe Shell
+	NL1();
+	printf("[END]: System Rebooting");
+	NL1();
+
+	// Resete MCU
 	HAL_NVIC_SystemReset();
 	return EXIT_SUCCESS;
 }
+//----------------------------------------------------------------------
 
-void cli_add_command(const char *command, const char *help, uint8_t (*exec)(int argc, char *argv[])){
-	size_t i = 0;
-	for(; i < MAX_COMMAND_NB; i++){
-		if(strcmp(CLI_commands[i].pCmd, "") == 0){
-			CLI_commands[i].pCmd = command;
-			CLI_commands[i].pFun = exec;
-			CLI_commands[i].pHelp = help;
-			break;
-		}
-	}
-	if(i == MAX_COMMAND_NB){
-		ERR("Cannot add command %s, max number of commands "
-				"reached. The maximum number of command is set to %d.\n" CLI_FONT_DEFAULT,
-				command, MAX_COMMAND_NB); NL1();
-	}
-	LOG(CLI_LOG_SHELL, "Command %s added to shell.\n", command);
-}
-
-uint8_t cli_log(int argc, char *argv[]){
-	if(argc < 2){
+// Logging ein und ausschalten
+//----------------------------------------------------------------------
+uint8_t cli_log (int argc, char *argv[])
+{
+	if (argc < 2)
+	{
 		printf("Command %s takes at least one argument. Use \"help %s\" for usage.\n", argv[0], argv[0]);
 		return EXIT_FAILURE;
 	}
 
-	if(strcmp(argv[1], "on") == 0){
-		if(argc < 3){
+	if (strcmp(argv[1], "on") == 0)
+	{
+		if (argc < 3)
+		{
 			printf("Command %s on takes at least 3 arguments.\n", argv[0]);
+
 			return EXIT_FAILURE;
 		}
-		if(strcmp(argv[2], "all") == 0){
+
+		if (strcmp(argv[2], "all") == 0)
+		{
 			cli_log_stat = 0xFFFFFFFF;
 			printf("All logs enabled.\n");
+
 			return EXIT_SUCCESS;
-		}else{
-			for(int i = 2; i < argc; i++){
+		}
+		else
+		{
+			for (uint8_t i = 2; i < argc; i++)
+			{
 				cli_enable_log_entry(argv[i]);
 			}
+
 			return EXIT_SUCCESS;
 		}
-
-	}else if(strcmp(argv[1], "off") == 0){
+	}
+	else if (strcmp(argv[1], "off") == 0)
+	{
 		printf("Turning off all logs\n");
-		if(argc < 3){
+		if (argc < 3)
+		{
 			printf("Command %s on takes at least 3 arguments.\n", argv[0]);
+
 			return EXIT_FAILURE;
 		}
-		if(strcmp(argv[2], "all") == 0){
+
+		if (strcmp(argv[2], "all") == 0)
+		{
 			cli_log_stat = 0;
 			printf("All logs disabled.\n");
-			return EXIT_SUCCESS;
-		}else{
-			for(int i = 2; i < argc; i++){
-				cli_disable_log_entry(argv[i]);
-			}
+
 			return EXIT_SUCCESS;
 		}
+		else
+		{
+			for (uint8_t i = 2; i < argc; i++)
+			{
+				cli_disable_log_entry(argv[i]);
+			}
 
-	}else if(strcmp(argv[1], "show") == 0){
-		for(unsigned int i = 0; i < CLI_LAST_LOG_CATEGORY; i++){
+			return EXIT_SUCCESS;
+		}
+	}
+	else if (strcmp(argv[1], "show") == 0)
+	{
+		for (uint8_t i = 0; i < CLI_LAST_LOG_CATEGORY; i++)
+		{
 			printf("%16s:\t", cli_logs_names[i]);
-			if(cli_log_stat&(1<<i)){
+
+			if (cli_log_stat & (1 << i))
+			{
 				printf(CLI_FONT_GREEN"Enabled"CLI_FONT_DEFAULT"\n");
-			}else{
+			}
+			else
+			{
 				printf(CLI_FONT_RED"Disabled"CLI_FONT_DEFAULT"\n");
 			}
 		}
+
 		return EXIT_SUCCESS;
 	}
 
 	return EXIT_FAILURE;
 }
+//----------------------------------------------------------------------
 
-void cli_disable_log_entry(char *str){
-	for(unsigned int i = 0; i < CLI_LAST_LOG_CATEGORY; i++){
-		if(strcmp(str, cli_logs_names[i]) == 0){
+// Logging ausschalten
+//----------------------------------------------------------------------
+void cli_disable_log_entry (char *str)
+{
+	// Durch gehen fuer jede Kategorie
+	for (unsigned int i = 0; i < CLI_LAST_LOG_CATEGORY; i++)
+	{
+		// Stimmt Kategorie aus Array mit String ueberein
+		if (strcmp(str, cli_logs_names[i]) == 0)
+		{
+			// Deaktiviere Logging fuer Kategorie
 			printf("LOG disabled for category %s.\n", str);
 			cli_log_stat &= ~(1<<i);
 		}
 	}
 }
+//----------------------------------------------------------------------
 
-void cli_enable_log_entry(char *str){
-	for(unsigned int i = 0; i < CLI_LAST_LOG_CATEGORY; i++){
-		if(strcmp(str, cli_logs_names[i]) == 0){
+// Logging einschalten
+//----------------------------------------------------------------------
+void cli_enable_log_entry (char *str)
+{
+	// Durch gehen fuer jede Kategorie
+	for (unsigned int i = 0; i < CLI_LAST_LOG_CATEGORY; i++)
+	{
+		// Stimmt Kategorie aus Array mit String ueberein
+		if (strcmp(str, cli_logs_names[i]) == 0)
+		{
+			// Aktiviere Logging fuer Kategorie
 			printf("LOG enabled for category %s.\n", str);
 			cli_log_stat |= (1<<i);
 		}
 	}
 }
+//----------------------------------------------------------------------
